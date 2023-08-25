@@ -1,0 +1,16 @@
+od读取文件数据，可以用16进制方式，可以用来读取字符设备/dev/ttyAMA7中的内容。 
+od - dump files in octal and other formats 
+od -t x1 test.txt 
+chengshangxian@ubuntu:~$ od -t x1 test.txt
+0000000 64 61 6c 6c 64 61 6a 61 64 73 67 6c 3b 61 73 6a
+0000020 3b 61 6a 3b 64 6c 61 6a 64 6c 66 61 6a 3b 6a 3b
+0000040 6a 3b 6a 3b 3b 3b 0a
+0000047
+
+
+od -t x1z test.txt -t后面跟类型，
+x1表示按照16进制打印一个字节。z表示后面按照字符输出， 
+chengshangxian@ubuntu:~$ od -t x1z test.txt
+0000000 64 61 6c 6c 64 61 6a 61 64 73 67 6c 3b 61 73 6a  >dalldajadsgl;asj<
+0000020 3b 61 6a 3b 64 6c 61 6a 64 6c 66 61 6a 3b 6a 3b  >;aj;dlajdlfaj;j;<
+0000040 6a 3b 6a 3b 3b 3b 0a                             >j;j;;;.<
