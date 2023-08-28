@@ -1,0 +1,50 @@
+int timer_create(clockid_t clockid,
+                        struct sigevent *_Nullable restrict sevp,
+                        timer_t *restrict timerid);
+
+CLOCK_REALTIME: 系统时间
+              A settable system-wide real-time clock.
+
+CLOCK_MONOTONIC: 递进时间，某个特定时间开始计时
+              A nonsettable monotonically increasing clock that measures
+              time from some unspecified point in the past that does not
+              change after system startup.
+CLOCK_PROCESS_CPUTIME_ID (since Linux 2.6.12)：进程消费的时间
+              A clock that measures (user and system) CPU time consumed
+              by (all of the threads in) the calling process.
+
+
+
+CLOCK_PROCESS_CPUTIME_ID用的不准，因为进程有可能被挂起来，进程的计时不准。
+
+定义信号响应函数：
+void signal_handle(int signal)
+{
+	Timer_10ms_Cnt_Proc();
+}
+
+	struct timespec spec;
+	struct sigevent ent;
+	struct itimerspec value;
+	struct itimerspec get_val;
+
+	/* Init */
+	memset(&ent, 0x00, sizeof(struct sigevent));
+	memset(&get_val, 0x00, sizeof(struct itimerspec));
+
+	/* create a timer ，定义信号处理函数，不用SIGEV_THREAD因为会新开一个线程会比较耗时，信号响应耗时少*/
+	ent.sigev_notify = SIGEV_SIGNAL;
+ 	ent.sigev_signo = SIGUSR1;
+ 	signal(SIGUSR1, signal_handle);
+  timer_create(CLOCK_MONOTONIC, &ent, &m_timer_ent_id);
+
+	/* start a timer */
+	clock_gettime(CLOCK_MONOTONIC, &spec);           /* CLOCK_REALTIME */
+	value.it_value.tv_sec = spec.tv_sec + 0;
+	value.it_value.tv_nsec = spec.tv_nsec + 10000000;	 //10ms
+	value.it_interval.tv_sec = 0;    				/*per second */
+	value.it_interval.tv_nsec = 10000000; //10ms
+
+
+
+
