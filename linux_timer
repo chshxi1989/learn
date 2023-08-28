@@ -1,3 +1,9 @@
+linux定时器使用
+
+为什么不用sleep:因为sleep会导致线程的执行被cpu切换走，而sleep时间到后，不一定就马上被cpu调度进来执行了，依赖进程和线程的调度优先级。
+
+https://man7.org/linux/man-pages/man2/timer_create.2.html
+
 int timer_create(clockid_t clockid,
                         struct sigevent *_Nullable restrict sevp,
                         timer_t *restrict timerid);
@@ -36,7 +42,7 @@ void signal_handle(int signal)
 	ent.sigev_notify = SIGEV_SIGNAL;
  	ent.sigev_signo = SIGUSR1;
  	signal(SIGUSR1, signal_handle);
-  timer_create(CLOCK_MONOTONIC, &ent, &m_timer_ent_id);
+        timer_create(CLOCK_MONOTONIC, &ent, &m_timer_ent_id);
 
 	/* start a timer */
 	clock_gettime(CLOCK_MONOTONIC, &spec);           /* CLOCK_REALTIME */
