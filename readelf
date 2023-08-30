@@ -1,0 +1,13 @@
+查看程序依赖的so：
+
+chengshangxian@ubuntu:~$ aarch64-himix100-linux-readelf -a rtsp_proxy |grep Shared
+ 0x0000000000000001 (NEEDED)             Shared library: [libzlog.so.1.2]
+ 0x0000000000000001 (NEEDED)             Shared library: [libpthread.so.0]
+ 0x0000000000000001 (NEEDED)             Shared library: [libnpc.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libdl.so.2]
+ 0x0000000000000001 (NEEDED)             Shared library: [libmk_api.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+chengshangxian@ubuntu:~$
