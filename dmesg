@@ -1,0 +1,326 @@
+dmesg查看linux启动阶段的控制台打印输出
+  
+~ # dmesg
+Booting Linux on physical CPU 0x0
+Linux version 4.9.37 (zh@zh-work) (gcc version 6.3.0 (HC&C V1R3C00SPC200B005_20190606) ) #1 SMP Wed Jan 12 16:43:55 CST 2022
+Boot CPU: AArch64 Processor [410fd034]
+Machine model: Hisilicon HI3559AV100 DEMO Board
+Memory limited to 2048MB
+cmz zone is not set!
+cma: Reserved 4 MiB at 0x00000000c3c00000
+On node 0 totalpages: 524288
+  DMA zone: 8192 pages used for memmap
+  DMA zone: 0 pages reserved
+  DMA zone: 524288 pages, LIFO batch:31
+psci: probing for conduit method from DT.
+psci: PSCIv1.0 detected in firmware.
+psci: Using standard PSCI v0.2 function IDs
+psci: MIGRATE_INFO_TYPE not supported.
+percpu: Embedded 19 pages/cpu @ffffffc083b7d000 s39576 r8192 d30056 u77824
+pcpu-alloc: s39576 r8192 d30056 u77824 alloc=19*4096
+pcpu-alloc: [0] 0 [0] 1 [0] 2 [0] 3
+Detected VIPT I-cache on CPU0
+CPU features: enabling workaround for ARM erratum 845719
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 516096
+Kernel command line: mem=2048M console=ttyAMA0,115200 root=/dev/mmcblk0p3 rw rootfstype=ext4 rootwait blkdevparts=mmcblk0:1M(boot),9M(kernel),10240M(rootfs)
+log_buf_len individual max cpu contribution: 4096 bytes
+log_buf_len total cpu_extra contributions: 12288 bytes
+log_buf_len min size: 16384 bytes
+log_buf_len: 32768 bytes
+early log buf free: 14716(89%)
+PID hash table entries: 4096 (order: 3, 32768 bytes)
+Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes)
+Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes)
+Memory: 2029064K/2097152K available (6206K kernel code, 358K rwdata, 1780K rodata, 320K init, 332K bss, 63992K reserved, 4096K cma-reserved)
+Virtual kernel memory layout:
+    modules : 0xffffff8000000000 - 0xffffff8008000000   (   128 MB)
+    vmalloc : 0xffffff8008000000 - 0xffffffbebfff0000   (   250 GB)
+      .text : 0xffffff8008080000 - 0xffffff8008690000   (  6208 KB)
+    .rodata : 0xffffff8008690000 - 0xffffff8008860000   (  1856 KB)
+      .init : 0xffffff8008860000 - 0xffffff80088b0000   (   320 KB)
+      .data : 0xffffff80088b0000 - 0xffffff8008909808   (   359 KB)
+       .bss : 0xffffff8008909808 - 0xffffff800895cbbc   (   333 KB)
+    fixed   : 0xffffffbefe7fb000 - 0xffffffbefec00000   (  4116 KB)
+    PCI I/O : 0xffffffbefee00000 - 0xffffffbeffe00000   (    16 MB)
+    vmemmap : 0xffffffbf00000000 - 0xffffffc000000000   (     4 GB maximum)
+              0xffffffbf00100000 - 0xffffffbf02100000   (    32 MB actual)
+    memory  : 0xffffffc004000000 - 0xffffffc084000000   (  2048 MB)
+SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+Hierarchical RCU implementation.
+        RCU debugfs-based tracing is enabled.
+        Build-time adjustment of leaf fanout to 64.
+        RCU restricting CPUs from NR_CPUS=64 to nr_cpu_ids=4.
+RCU: Adjusting geometry for rcu_fanout_leaf=64, nr_cpu_ids=4
+NR_IRQS:64 nr_irqs:64 0
+Gic dist init...
+arm_arch_timer: Architected cp15 timer(s) running at 50.00MHz (phys).
+clocksource: arch_sys_counter: mask: 0xffffffffffffff max_cycles: 0xb8812736b, max_idle_ns: 440795202655 ns
+sched_clock: 56 bits at 50MHz, resolution 20ns, wraps every 4398046511100ns
+Console: colour dummy device 80x25
+Calibrating delay loop (skipped), value calculated using timer frequency.. 100.00 BogoMIPS (lpj=50000)
+pid_max: default: 32768 minimum: 301
+Mount-cache hash table entries: 4096 (order: 3, 32768 bytes)
+Mountpoint-cache hash table entries: 4096 (order: 3, 32768 bytes)
+ASID allocator initialised with 32768 entries
+Detected VIPT I-cache on CPU1
+CPU1: Booted secondary processor [410fd034]
+Detected VIPT I-cache on CPU2
+CPU2: Booted secondary processor [410fd092]
+Detected VIPT I-cache on CPU3
+CPU3: Booted secondary processor [410fd092]
+Brought up 4 CPUs
+SMP: Total of 4 processors activated.
+CPU features: detected feature: 32-bit EL0 Support
+CPU features: detected feature: Kernel page table isolation (KPTI)
+CPU: All CPU(s) started at EL1
+alternatives: patching kernel code
+clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1911260446275000 ns
+futex hash table entries: 1024 (order: 5, 131072 bytes)
+pinctrl core: initialized pinctrl subsystem
+NET: Registered protocol family 16
+vdso: 2 pages (1 code @ ffffff8008696000, 1 data @ ffffff80088b4000)
+DMA: preallocated 256 KiB pool for atomic allocations
+Serial: AMBA PL011 UART driver
+12100000.uart: ttyAMA0 at MMIO 0x12100000 (irq = 13, base_baud = 0) is a PL011 rev2
+console [ttyAMA0] enabled
+12102000.uart: ttyAMA2 at MMIO 0x12102000 (irq = 14, base_baud = 0) is a PL011 rev2
+12103000.uart: ttyAMA3 at MMIO 0x12103000 (irq = 15, base_baud = 0) is a PL011 rev2
+12104000.uart: ttyAMA4 at MMIO 0x12104000 (irq = 16, base_baud = 0) is a PL011 rev2
+18060000.uart: ttyAMA5 at MMIO 0x18060000 (irq = 17, base_baud = 0) is a PL011 rev2
+18061000.uart: ttyAMA6 at MMIO 0x18061000 (irq = 18, base_baud = 0) is a PL011 rev2
+18062000.uart: ttyAMA7 at MMIO 0x18062000 (irq = 19, base_baud = 0) is a PL011 rev2
+18063000.uart: ttyAMA8 at MMIO 0x18063000 (irq = 20, base_baud = 0) is a PL011 rev2
+18064000.uart: ttyAMA9 at MMIO 0x18064000 (irq = 21, base_baud = 0) is a PL011 rev2
+18065000.uart: ttyAMA10 at MMIO 0x18065000 (irq = 18, base_baud = 0) is a PL011 rev2
+18066000.uart: ttyAMA11 at MMIO 0x18066000 (irq = 19, base_baud = 0) is a PL011 rev2
+vgaarb: loaded
+SCSI subsystem initialized
+ssp-pl022 12120000.spi: ARM PL022 driver, device ID: 0x00800022
+ssp-pl022 12120000.spi: mapped registers from 0x0000000012120000 to ffffff80089b5000
+ssp-pl022 12121000.spi: ARM PL022 driver, device ID: 0x00800022
+ssp-pl022 12121000.spi: mapped registers from 0x0000000012121000 to ffffff80089bb000
+ssp-pl022 12122000.spi: ARM PL022 driver, device ID: 0x00800022
+ssp-pl022 12122000.spi: mapped registers from 0x0000000012122000 to ffffff80089c1000
+ssp-pl022 12123000.spi: ARM PL022 driver, device ID: 0x00800022
+ssp-pl022 12123000.spi: mapped registers from 0x0000000012123000 to ffffff80089c7000
+ssp-pl022 12124000.spi: ARM PL022 driver, device ID: 0x00800022
+ssp-pl022 12124000.spi: mapped registers from 0x0000000012124000 to ffffff80089cd000
+usbcore: registered new interface driver usbfs
+usbcore: registered new interface driver hub
+usbcore: registered new device driver usb
+Linux video capture interface: v2.00
+clocksource: Switched to clocksource arch_sys_counter
+VFS: Disk quotas dquot_6.6.0
+VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+NET: Registered protocol family 2
+TCP established hash table entries: 16384 (order: 5, 131072 bytes)
+TCP bind hash table entries: 16384 (order: 6, 262144 bytes)
+TCP: Hash tables configured (established 16384 bind 16384)
+UDP hash table entries: 1024 (order: 3, 32768 bytes)
+UDP-Lite hash table entries: 1024 (order: 3, 32768 bytes)
+NET: Registered protocol family 1
+RPC: Registered named UNIX socket transport module.
+RPC: Registered udp transport module.
+RPC: Registered tcp transport module.
+RPC: Registered tcp NFSv4.1 backchannel transport module.
+PCI: CLS 0 bytes, default 128
+workingset: timestamp_bits=62 max_order=19 bucket_order=0
+squashfs: version 4.0 (2009/01/31) Phillip Lougher
+jffs2: version 2.2 (NAND) (ZLIB) (RTIME) (c) 2001-2006 Red Hat, Inc.
+fuse init (API version 7.26)
+yaffs: yaffs Installing.
+Block layer SCSI generic (bsg) driver version 0.4 loaded (major 252)
+io scheduler noop registered
+io scheduler deadline registered (default)
+io scheduler cfq registered
+pl061_gpio 12140000.gpio_chip: PL061 GPIO chip @0x0000000012140000 registered
+pl061_gpio 12141000.gpio_chip: PL061 GPIO chip @0x0000000012141000 registered
+pl061_gpio 12142000.gpio_chip: PL061 GPIO chip @0x0000000012142000 registered
+pl061_gpio 12143000.gpio_chip: PL061 GPIO chip @0x0000000012143000 registered
+pl061_gpio 12144000.gpio_chip: PL061 GPIO chip @0x0000000012144000 registered
+pl061_gpio 12145000.gpio_chip: PL061 GPIO chip @0x0000000012145000 registered
+pl061_gpio 12146000.gpio_chip: PL061 GPIO chip @0x0000000012146000 registered
+pl061_gpio 12147000.gpio_chip: PL061 GPIO chip @0x0000000012147000 registered
+pl061_gpio 12148000.gpio_chip: PL061 GPIO chip @0x0000000012148000 registered
+pl061_gpio 12149000.gpio_chip: PL061 GPIO chip @0x0000000012149000 registered
+pl061_gpio 1214a000.gpio_chip: PL061 GPIO chip @0x000000001214a000 registered
+pl061_gpio 1214b000.gpio_chip: PL061 GPIO chip @0x000000001214b000 registered
+pl061_gpio 1214c000.gpio_chip: PL061 GPIO chip @0x000000001214c000 registered
+pl061_gpio 1214d000.gpio_chip: PL061 GPIO chip @0x000000001214d000 registered
+pl061_gpio 1214e000.gpio_chip: PL061 GPIO chip @0x000000001214e000 registered
+pl061_gpio 1214f000.gpio_chip: PL061 GPIO chip @0x000000001214f000 registered
+pl061_gpio 12150000.gpio_chip: PL061 GPIO chip @0x0000000012150000 registered
+pl061_gpio 12151000.gpio_chip: PL061 GPIO chip @0x0000000012151000 registered
+pl061_gpio 12152000.gpio_chip: PL061 GPIO chip @0x0000000012152000 registered
+Unable to detect cache hierarchy from DT for CPU 0
+brd: module loaded
+loop: module loaded
+hisi-sfc hisi_spi_nor.0: SPI Nor ID Table Version 1.2
+hisi-sfc hisi_spi_nor.0: unrecognized Manufacturer ID
+hisi-sfc hisi_spi_nor.0: spi nor register fail!
+hisi-sfc: probe of hisi_spi_nor.0 failed with error -2
+SPI Nand ID Table Version 2.7
+Cannot found a valid SPI Nand Device
+hisi_spi_nand_probe(175): Error: driver probe, result: -19
+libphy: hisi_gemac_mii_bus: probed
+libphy: hisi_gemac_mii_bus: probed
+libphy: Fixed MDIO Bus: probed
+vcan: Virtual CAN interface driver
+CAN device driver interface
+using default reg function
+c_can_platform 12071000.c_can: c_can_platform device registered (regs=ffffff8008aae000, irq=22)
+hi_gmac_v200 101c0000.ethernet: invalid resource
+hi_gmac_v200 101c0000.ethernet (unnamed net_device) (uninitialized): using random MAC address 9a:d7:db:4e:34:e4
+attached PHY 0 to driver Generic PHY, PHY_ID=0x10a
+Higmac dma_sg_phy: 0x00000000c3c80000
+ETH: rgmii, phy_addr=0
+hi_gmac_v200 101e0000.ethernet: invalid resource
+hi_gmac_v200 101e0000.ethernet (unnamed net_device) (uninitialized): using random MAC address 6e:9d:20:ac:75:c2
+attached PHY 1 to driver Generic PHY, PHY_ID=0x10a
+Higmac dma_sg_phy: 0x00000000c3cc0000
+ETH: rgmii, phy_addr=1
+xhci-hcd 12310000.xhci_1: xHCI Host Controller
+xhci-hcd 12310000.xhci_1: new USB bus registered, assigned bus number 1
+xhci-hcd 12310000.xhci_1: hcc params 0x0220fe6d hci version 0x110 quirks 0x00010010
+xhci-hcd 12310000.xhci_1: irq 50, io mem 0x12310000
+hub 1-0:1.0: USB hub found
+hub 1-0:1.0: 1 port detected
+xhci-hcd 12310000.xhci_1: xHCI Host Controller
+xhci-hcd 12310000.xhci_1: new USB bus registered, assigned bus number 2
+usb usb2: We don't know the algorithms for LPM for this host, disabling LPM.
+hub 2-0:1.0: USB hub found
+hub 2-0:1.0: 1 port detected
+usbcore: registered new interface driver usb-storage
+using random self ethernet address
+using random host ethernet address
+usb0: HOST MAC 8e:61:57:60:c5:fc
+usb0: MAC b2:5d:ab:25:43:5a
+using random self ethernet address
+using random host ethernet address
+g_ether gadget: Ethernet Gadget, version: Memorial Day 2008
+g_ether gadget: g_ether ready
+mousedev: PS/2 mouse device common for all mice
+hibvt_rtc 180b0000.rtc: rtc core: registered 180b0000.rtc as rtc0
+hibvt_rtc 180b0000.rtc: RTC driver for hibvt enabled
+i2c /dev entries driver
+hibvt-i2c 12110000.i2c: hibvt-i2c0@100000hz registered
+hibvt-i2c 12111000.i2c: hibvt-i2c1@100000hz registered
+hibvt-i2c 12112000.i2c: hibvt-i2c2@100000hz registered
+hibvt-i2c 12113000.i2c: hibvt-i2c3@100000hz registered
+hibvt-i2c 12114000.i2c: hibvt-i2c4@100000hz registered
+hibvt-i2c 12115000.i2c: hibvt-i2c5@100000hz registered
+hibvt-i2c 12116000.i2c: hibvt-i2c6@100000hz registered
+hibvt-i2c 12117000.i2c: hibvt-i2c7@100000hz registered
+hibvt-i2c 12118000.i2c: hibvt-i2c8@100000hz registered
+hibvt-i2c 12119000.i2c: hibvt-i2c9@100000hz registered
+hibvt-i2c 1211a000.i2c: hibvt-i2c10@100000hz registered
+hibvt-i2c 1211b000.i2c: hibvt-i2c11@100000hz registered
+usbcore: registered new interface driver uvcvideo
+USB Video Class driver (1.1.1)
+sdhci: Secure Digital Host Controller Interface driver
+sdhci: Copyright(c) Pierre Ossman
+sdhci-pltfm: SDHCI platform and OF driver helper
+mmc0: SDHCI controller on 100f0000.eMMC [100f0000.eMMC] using ADMA 64-bit in legacy mode
+mmc1: SDHCI controller on 10100000.SD [10100000.SD] using ADMA 64-bit in legacy mode
+mmc0: CMDQ supported: depth: 32
+mmc0: new HS400 Enhanced strobe MMC card at address 0001
+mmc0: -524: cmdq: unable to set-up
+mmc2: SDHCI controller on 10110000.SD [10110000.SD] using ADMA 64-bit in legacy mode
+usbcore: registered new interface driver usbhid
+usbhid: USB HID core driver
+NET: Registered protocol family 10
+NET: Registered protocol family 17
+mmcblk0: mmc0:0001 SPeMMC 57.9 GiB
+mmcblk0boot0: mmc0:0001 SPeMMC partition 1 4.00 MiB
+mmcblk0boot1: mmc0:0001 SPeMMC partition 2 4.00 MiB
+mmcblk0rpmb: mmc0:0001 SPeMMC partition 3 4.00 MiB
+ mmcblk0: p1(boot) p2(kernel) p3(rootfs)
+bridge: filtering via arp/ip/ip6tables is no longer available by default. Update your scripts to load br_netfilter if you need this.
+can: controller area network core (rev 20120528 abi 9)
+NET: Registered protocol family 29
+can: raw protocol (rev 20120528)
+can: broadcast manager protocol (rev 20161123 t)
+can: netlink gateway (rev 20130117) max_hops=1
+hibvt_rtc 180b0000.rtc: setting system clock to 1970-01-01 00:00:04 UTC (4)
+random: fast init done
+g_ether gadget: high-speed config #2: RNDIS
+EXT4-fs (mmcblk0p3): recovery complete
+EXT4-fs (mmcblk0p3): mounted filesystem with ordered data mode. Opts: (null)
+VFS: Mounted root (ext4 filesystem) on device 179:3.
+Freeing unused kernel memory: 320K (ffffffc004860000 - ffffffc0048b0000)
+dwc3 12300000.hiudc3_0: wakeup failed --> -22
+------------[ cut here ]------------
+WARNING: CPU: 1 PID: 1380 at drivers/usb/dwc3/gadget.c:292 dwc3_send_gadget_ep_cmd+0x1e0/0x228
+Modules linked in:
+
+CPU: 1 PID: 1380 Comm: ifconfig Not tainted 4.9.37 #1
+Hardware name: Hisilicon HI3559AV100 DEMO Board (DT)
+task: ffffffc07e20d400 task.stack: ffffffc07dcb0000
+PC is at dwc3_send_gadget_ep_cmd+0x1e0/0x228
+LR is at dwc3_send_gadget_ep_cmd+0x1e0/0x228
+pc : [<ffffff800847db88>] lr : [<ffffff800847db88>] pstate: 60000085
+sp : ffffffc07dcb3a20
+x29: ffffffc07dcb3a20 x28: ffffffc07fbfc000
+x27: 0000000000000000 x26: ffffff80088b7000
+x25: 0000000000000000 x24: 0000000000000001
+x23: 00000000ffffffea x22: ffffffc07fafb020
+x21: ffffffc07dcb3ad8 x20: 0000000000000006
+x19: ffffffc0803a2600 x18: ffffff8008916578
+x17: 0000007faf696320 x16: ffffff800817d980
+x15: 0000000000008000 x14: 00000000000000f7
+x13: 0000000000000000 x12: 0000000000000007
+x11: 0000000000000006 x10: 00000000000000f8
+x9 : 000000000000002e x8 : 322d203e2d2d2064
+x7 : 656c696166207075 x6 : ffffff8008913da5
+x5 : 000000000000000a x4 : 0000000000000000
+x3 : 0000000000000000 x2 : 0000000000040925
+x1 : 0000000000000000 x0 : 000000000000002d
+
+---[ end trace 4aa0d11350c4fded ]---
+Call trace:
+Exception stack(0xffffffc07dcb3820 to 0xffffffc07dcb3950)
+3820: ffffffc0803a2600 0000007fffffffff ffffffc07dcb3a20 ffffff800847db88
+3840: 0000000060000085 000000000000003d 0000000000000000 000000000000002d
+3860: ffffffc07dcb3880 ffffff80080de15c ffffff800878e130 00000000088c6a90
+3880: ffffffc07dcb3920 ffffff80080de470 ffffff80088b7108 0000000000000006
+38a0: ffffffc07dcb3ad8 ffffffc07fafb020 00000000ffffffea 0000000000000001
+38c0: 0000000000000000 ffffff80088b7000 0000000000000000 ffffffc07fbfc000
+38e0: 00000000000000ff 0000000000040925 000000000000002d 0000000000000000
+3900: 0000000000040925 0000000000000000 0000000000000000 000000000000000a
+3920: ffffff8008913da5 656c696166207075 322d203e2d2d2064 000000000000002e
+3940: 00000000000000f8 0000000000000006
+[<ffffff800847db88>] dwc3_send_gadget_ep_cmd+0x1e0/0x228
+[<ffffff800847dde8>] __dwc3_gadget_kick_transfer+0x190/0x380
+[<ffffff800847e288>] __dwc3_gadget_ep_queue+0x150/0x188
+[<ffffff800847e2fc>] dwc3_gadget_ep_queue+0x3c/0xd8
+[<ffffff80084a333c>] usb_ep_queue+0x3c/0x58
+[<ffffff80084a57ec>] rx_submit+0xe4/0x1b8
+[<ffffff80084a5920>] rx_fill+0x60/0xb8
+[<ffffff80084a59e8>] eth_open+0x70/0x88
+[<ffffff8008572678>] __dev_open+0xe0/0x148
+[<ffffff8008572970>] __dev_change_flags+0x98/0x148
+[<ffffff8008572a40>] dev_change_flags+0x20/0x60
+[<ffffff80085dcc80>] devinet_ioctl+0x680/0x720
+[<ffffff80085deea4>] inet_ioctl+0x9c/0xc0
+[<ffffff800854e148>] sock_do_ioctl+0x38/0x80
+[<ffffff800854f39c>] sock_ioctl+0x24c/0x348
+[<ffffff800817d1d0>] do_vfs_ioctl+0xb8/0x868
+[<ffffff800817d9c4>] SyS_ioctl+0x44/0x80
+[<ffffff8008082f40>] el0_svc_naked+0x34/0x38
+IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+c_can_platform 12071000.c_can can0: setting BTR=2f04 BRPE=0000
+IPv6: ADDRCONF(NETDEV_UP): eth1: link is not ready
+br0: port 1(eth0) entered blocking state
+br0: port 1(eth0) entered disabled state
+device eth0 entered promiscuous mode
+br0: port 2(eth1) entered blocking state
+br0: port 2(eth1) entered disabled state
+device eth1 entered promiscuous mode
+br0: port 3(usb0) entered blocking state
+br0: port 3(usb0) entered disabled state
+device usb0 entered promiscuous mode
+br0: port 3(usb0) entered blocking state
+br0: port 3(usb0) entered forwarding state
+random: crng init done
+
+  
