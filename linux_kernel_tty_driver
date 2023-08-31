@@ -1,0 +1,126 @@
+arm平台下amba总线的uart驱动名称：/dev/ttyAMA
+
+                amba {
+                        compatible = "arm,amba-bus";
+                        #address-cells = <0x01>;
+                        #size-cells = <0x01>;
+                        ranges;
+
+                        arm-timer {
+                                compatible = "arm,armv8-timer";
+                                interrupts = <0x01 0x0d 0xf04 0x01 0x0e 0xf04>;
+                                clock-frequency = <0x2faf080>;
+                        };
+
+                        timer@12000000 {
+                                compatible = "hisilicon,hisp804";
+                                reg = <0x12000000 0x20 0x1d840000 0x20 0x1d840020 0x20 0x1d850000 0x20 0x1d850020 0x20>;
+                                interrupts = <0x00 0x71 0x04 0x00 0x72 0x04 0x00 0x73 0x04 0x00 0x74 0x04>;
+                                clocks = <0x02>;
+                                clock-names = "apb_pclk";
+                        };
+
+                        uart@12100000 {
+                                compatible = "arm,pl011\0arm,primecell";
+                                reg = <0x12100000 0x1000>;
+                                interrupts = <0x00 0x06 0x04>;
+                                clocks = <0x03 0x5b>;
+                                clock-names = "apb_pclk";
+                                status = "okay";
+                        };
+
+                        uart@12101000 {
+                                compatible = "arm,pl011\0arm,primecell";
+                                reg = <0x12101000 0x1000>;
+                                interrupts = <0x00 0x07 0x04>;
+                                clocks = <0x03 0x5c>;
+                                clock-names = "apb_pclk";
+                                dmas = <0x04 0x02 0x02 0x04 0x03 0x03>;
+                                dma-names = "tx\0rx";
+                                status = "disabled";
+                        };
+                }
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\serial\amba-pl011.c
+定义amba驱动设备名称：
+static struct uart_driver amba_reg = {
+	.owner			= THIS_MODULE,
+	.driver_name		= "ttyAMA",
+	.dev_name		= "ttyAMA",
+	.major			= SERIAL_AMBA_MAJOR,
+	.minor			= SERIAL_AMBA_MINOR,
+	.nr			= UART_NR,
+	.cons			= AMBA_CONSOLE,
+};
+
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\serial\serial_core.c
+赋值设备名称，增加1/2/3等序号
+指定驱动名字是一个拼接。dev_name是/dev/ttyAMA，后面会拼接一个编号数字。
+uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
+	uport->cons = drv->cons;
+	uport->minor = drv->tty_driver->minor_start + uport->line;
+	uport->name = kasprintf(GFP_KERNEL, "%s%d", drv->dev_name,
+				drv->tty_driver->name_base + uport->line);
+
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\serial\amba-pl011.c
+声明设备
+OF_EARLYCON_DECLARE(pl011, "arm,pl011", pl011_early_console_setup);
+OF_EARLYCON_DECLARE(pl011, "arm,sbsa-uart", pl011_early_console_setup);
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\serial_core.h
+#define OF_EARLYCON_DECLARE(_name, compat, fn)				\
+	static const struct earlycon_id __UNIQUE_ID(__earlycon_##_name) \
+		EARLYCON_USED_OR_UNUSED  __section("__earlycon_table")  \
+		__aligned(__alig
+
+所以dts里面第一个uart对应的是/dev/ttyAMA0，第二个uart对应的是/dev/ttyAMA1，以此类推。
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\serial\serial_core.c
+定义设备相关的响应函数：
+static const struct tty_operations uart_ops = {
+	.install	= uart_install,
+	.open		= uart_open,
+	.close		= uart_close,
+	.write		= uart_write,
+	.put_char	= uart_put_char,
+	.flush_chars	= uart_flush_chars,
+	.write_room	= uart_write_room,
+	.chars_in_buffer= uart_chars_in_buffer,
+	.flush_buffer	= uart_flush_buffer,
+	.ioctl		= uart_ioctl,
+	.throttle	= uart_throttle,
+	.unthrottle	= uart_unthrottle,
+	.send_xchar	= uart_send_xchar,
+	.set_termios	= uart_set_termios,
+	.set_ldisc	= uart_set_ldisc,
+	.stop		= uart_stop,
+	.start		= uart_start,
+	.hangup		= uart_hangup,
+	.break_ctl	= uart_break_ctl,
+	.wait_until_sent= uart_wait_until_sent,
+#ifdef CONFIG_PROC_FS
+	.proc_show	= uart_proc_show,
+#endif
+	.tiocmget	= uart_tiocmget,
+	.tiocmset	= uart_tiocmset,
+	.set_serial	= uart_set_info_user,
+	.get_serial	= uart_get_info_user,
+	.get_icount	= uart_get_icount,
+#ifdef CONFIG_CONSOLE_POLL
+	.poll_init	= uart_poll_init,
+	.poll_get_char	= uart_poll_get_char,
+	.poll_put_char	= uart_poll_put_char,
+#endif
+};
+
+static const struct tty_port_operations uart_port_ops = {
+	.carrier_raised = uart_carrier_raised,
+	.dtr_rts	= uart_dtr_rts,
+	.activate	= uart_port_activate,
+	.shutdown	= uart_tty_port_shutdown,
+};
+
+
