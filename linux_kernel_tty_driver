@@ -364,3 +364,24 @@ EXPORT_SYMBOL_GPL(driver_register);
 
 amba:
 Advanced Microcontroller Bus Architecture
+
+总线注册：
+struct bus_type amba_bustype = {
+	.name		= "amba",
+	.dev_groups	= amba_dev_groups,
+	.match		= amba_match,
+	.uevent		= amba_uevent,
+	.probe		= amba_probe,
+	.remove		= amba_remove,
+	.shutdown	= amba_shutdown
+	.shutdown	= amba_shutdown,
+	.dma_configure	= amba_dma_configure,
+	.dma_cleanup	= amba_dma_cleanup,
+	.pm		= &amba_pm,
+};
+EXPORT_SYMBOL_GPL(amba_bustype);
+
+static int __init amba_init(void)
+{
+	return bus_register(&amba_bustype);
+}
