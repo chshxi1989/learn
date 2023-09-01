@@ -212,3 +212,154 @@ struct tty_driver {
 } __randomize_layout;
 
 
+
+
+
+=====================================================
+kernel启动注册uart驱动
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\serial\amba-pl011.c
+arch_initcall(pl011_init);
+
+static int __init pl011_init(void)
+{
+        printk(KERN_INFO "Serial: AMBA PL011 UART driver\n");
+
+        if (platform_driver_register(&arm_sbsa_uart_platform_driver))
+                pr_warn("could not register SBSA UART platform driver\n");
+        return amba_driver_register(&pl011_driver);
+}
+
+
+dmesg里面能看到kernel的打印:
+Serial: AMBA PL011 UART driver
+12100000.uart: ttyAMA0 at MMIO 0x12100000 (irq = 13, base_baud = 0) is a PL011 rev2
+console [ttyAMA0] enabled
+12102000.uart: ttyAMA2 at MMIO 0x12102000 (irq = 14, base_baud = 0) is a PL011 rev2
+12103000.uart: ttyAMA3 at MMIO 0x12103000 (irq = 15, base_baud = 0) is a PL011 rev2
+12104000.uart: ttyAMA4 at MMIO 0x12104000 (irq = 16, base_baud = 0) is a PL011 rev2
+18060000.uart: ttyAMA5 at MMIO 0x18060000 (irq = 17, base_baud = 0) is a PL011 rev2
+18061000.uart: ttyAMA6 at MMIO 0x18061000 (irq = 18, base_baud = 0) is a PL011 rev2
+18062000.uart: ttyAMA7 at MMIO 0x18062000 (irq = 19, base_baud = 0) is a PL011 rev2
+18063000.uart: ttyAMA8 at MMIO 0x18063000 (irq = 20, base_baud = 0) is a PL011 rev2
+18064000.uart: ttyAMA9 at MMIO 0x18064000 (irq = 21, base_baud = 0) is a PL011 rev2
+18065000.uart: ttyAMA10 at MMIO 0x18065000 (irq = 18, base_baud = 0) is a PL011 rev2
+18066000.uart: ttyAMA11 at MMIO 0x18066000 (irq = 19, base_baud = 0) is a PL011 rev2
+
+
+
+pl011_driver:
+static struct amba_driver pl011_driver = {
+        .drv = {
+                .name   = "uart-pl011",
+                .pm     = &pl011_dev_pm_ops,
+                .suppress_bind_attrs = IS_BUILTIN(CONFIG_SERIAL_AMBA_PL011),
+        },
+        .id_table       = pl011_ids,
+        .probe          = pl011_probe,
+        .remove         = pl011_remove,
+};
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\amba\bus.c
+int amba_driver_register(struct amba_driver *drv)
+{
+        if (!drv->probe)
+                return -EINVAL;
+
+        drv->drv.bus = &amba_bustype;
+
+        return driver_register(&drv->drv);
+}
+EXPORT_SYMBOL(amba_driver_register);
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\amba\bus.h
+struct amba_driver {
+        struct device_driver    drv;
+        int                     (*probe)(struct amba_device *, const struct amba_id *);
+        void                    (*remove)(struct amba_device *);
+        void                    (*shutdown)(struct amba_device *);
+        const struct amba_id    *id_table;
+        /*
+         * For most device drivers, no need to care about this flag as long as
+         * all DMAs are handled through the kernel DMA API. For some special
+         * ones, for example VFIO drivers, they know how to manage the DMA
+         * themselves and set this flag so that the IOMMU layer will allow them
+         * to setup and manage their own I/O address space.
+         */
+        bool driver_managed_dma;
+};
+
+
+amba设备在make menuconfig中选择是否支持
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\amba\Kconfig
+# SPDX-License-Identifier: GPL-2.0
+config ARM_AMBA
+        bool
+
+if ARM_AMBA
+
+config TEGRA_AHB
+        bool
+        default y if ARCH_TEGRA
+        help
+          Adds AHB configuration functionality for NVIDIA Tegra SoCs,
+          which controls AHB bus master arbitration and some performance
+          parameters (priority, prefetch size).
+
+endif
+
+
+
+
+driver_register
+注册amba_driver
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\base\driver.c
+/**
+ * driver_register - register driver with bus
+ * @drv: driver to register
+ *
+ * We pass off most of the work to the bus_add_driver() call,
+ * since most of the things we have to do deal with the bus
+ * structures.
+ */
+int driver_register(struct device_driver *drv)
+{
+        int ret;
+        struct device_driver *other;
+
+        if (!bus_is_registered(drv->bus)) {
+                pr_err("Driver '%s' was unable to register with bus_type '%s' because the bus was not initialized.\n",
+                           drv->name, drv->bus->name);
+                return -EINVAL;
+        }
+
+        if ((drv->bus->probe && drv->probe) ||
+            (drv->bus->remove && drv->remove) ||
+            (drv->bus->shutdown && drv->shutdown))
+                pr_warn("Driver '%s' needs updating - please use "
+                        "bus_type methods\n", drv->name);
+
+        other = driver_find(drv->name, drv->bus);
+        if (other) {
+                pr_err("Error: Driver '%s' is already registered, "
+                        "aborting...\n", drv->name);
+                return -EBUSY;
+        }
+
+        ret = bus_add_driver(drv);
+        if (ret)
+                return ret;
+        ret = driver_add_groups(drv, drv->groups);
+        if (ret) {
+                bus_remove_driver(drv);
+                return ret;
+        }
+        kobject_uevent(&drv->p->kobj, KOBJ_ADD);
+        deferred_probe_extend_timeout();
+
+        return ret;
+}
+EXPORT_SYMBOL_GPL(driver_register);
+
+
