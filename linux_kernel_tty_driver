@@ -364,6 +364,8 @@ EXPORT_SYMBOL_GPL(driver_register);
 
 amba:
 Advanced Microcontroller Bus Architecture
+amba总线介绍：
+https://zhuanlan.zhihu.com/p/600296428
 
 总线注册：
 struct bus_type amba_bustype = {
@@ -385,3 +387,5 @@ static int __init amba_init(void)
 {
 	return bus_register(&amba_bustype);
 }
+
+
