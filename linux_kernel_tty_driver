@@ -362,4 +362,5 @@ int driver_register(struct device_driver *drv)
 }
 EXPORT_SYMBOL_GPL(driver_register);
 
-
+amba:
+Advanced Microcontroller Bus Architecture
