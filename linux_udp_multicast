@@ -1,5 +1,6 @@
 多播数据报套接字类用于发送和接收 IP 多播包。MulticastSocket 是一种 (UDP) DatagramSocket，它具有加入 Internet 上其他多播主机的“组”的附加功能。
 多播组通过 D 类 IP 地址和标准 UDP 端口号指定。可以通过首先使用所需端口创建 MulticastSocket，然后调用 joinGroup(InetAddress groupAddr) 方法来加入多播组。
+http://www.steves-internet-guide.com/introduction-multicasting/
 
 ifconfig查询是否支持多播，有MULTICAST就是支持多播，RUNNING是网卡处在运行状态。
 ens33: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
@@ -38,6 +39,13 @@ sysctl -w net.ipv4.conf.all.rp_filter=0
 cat /proc/sys/net/ipv4/conf/all/rp_filter
 cat /proc/sys/net/ipv4/conf/usb0/rp_filter
 
+
+测试用具：
+在windows上用PacketSender发送报文，在linux服务器中启动接收程序等待接收数据。
+发送报文不需要知道接收方的地址，只需要往组播地址和端口发送数据即可。
+接收报文需要加入组播组，并且绑定对应的端口。
+可以用packet sender发送报文，File-->settings --> Additional里面可以设置发送报文的网卡地址
+https://packetsender.com/
 
 
 INADDR_ANY是一个常量，它指代的是一个特殊的IP地址，即0.0.0.0。在网络编程中，当一个进程需要绑定一个网络端口时，可以使用INADDR_ANY来指定该端口可以接受来自任何IP地址的连接请求。
