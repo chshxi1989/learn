@@ -1,3 +1,45 @@
+多播数据报套接字类用于发送和接收 IP 多播包。MulticastSocket 是一种 (UDP) DatagramSocket，它具有加入 Internet 上其他多播主机的“组”的附加功能。
+多播组通过 D 类 IP 地址和标准 UDP 端口号指定。可以通过首先使用所需端口创建 MulticastSocket，然后调用 joinGroup(InetAddress groupAddr) 方法来加入多播组。
+
+ifconfig查询是否支持多播，有MULTICAST就是支持多播，RUNNING是网卡处在运行状态。
+ens33: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.203.128  netmask 255.255.255.0  broadcast 192.168.203.255
+
+route查询配置的路由状态：
+chengshangxian@ubuntu:~/test/multicast$ route
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+default         _gateway        0.0.0.0         UG    100    0        0 ens33
+link-local      0.0.0.0         255.255.0.0     U     1000   0        0 ens33
+192.168.203.0   0.0.0.0         255.255.255.0   U     100    0        0 ens33
+
+
+route add增加路由，dev后面是网卡的名字，这里是usb0，
+route add -net 226.0.0.0 netmask 254.0.0.0 dev usb0
+route add -net 224.0.0.0 netmask 240.0.0.0 dev usb0
+
+
+tcpdump抓包，https://www.cnblogs.com/meiming/p/7587385.html
+抓包eth0网卡的udp类型数据包：
+tcpdump -i eth0 udp
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on usb0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+00:37:55.186990 IP 192.1.2.33.7043 > 226.0.0.22.7043: UDP, length 11
+00:37:56.186597 IP 192.1.2.33.7043 > 226.0.0.22.7043: UDP, length 11
+
+抓包要保存到文件中，后面可以用wireshark解析，
+tcpdump -i eth0 udp -w test.pcapng
+
+抓udp和igmp类型报文
+tcpdump -i eth0 udp or igmp -w test.pcapng
+
+查询是否过滤了保温，为0不过滤地址不一致报文，
+sysctl -w net.ipv4.conf.all.rp_filter=0
+cat /proc/sys/net/ipv4/conf/all/rp_filter
+cat /proc/sys/net/ipv4/conf/usb0/rp_filter
+
+
+
 INADDR_ANY是一个常量，它指代的是一个特殊的IP地址，即0.0.0.0。在网络编程中，当一个进程需要绑定一个网络端口时，可以使用INADDR_ANY来指定该端口可以接受来自任何IP地址的连接请求。
 具体来说，当一个进程需要监听某个网络端口时，需要调用bind()函数将该端口与一个IP地址绑定。如果使用INADDR_ANY作为IP地址参数，就表示该端口可以接受来自任何IP地址的连接请求。这样，无论是本地主机还是远程主机，只要它们能够访问该端口，就可以与该进程建立连接。
 receive bind地址时，要指定为INADDR_ANY，不能写本地网卡的地址192.168.203.128.
