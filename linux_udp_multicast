@@ -1,0 +1,167 @@
+INADDR_ANY是一个常量，它指代的是一个特殊的IP地址，即0.0.0.0。在网络编程中，当一个进程需要绑定一个网络端口时，可以使用INADDR_ANY来指定该端口可以接受来自任何IP地址的连接请求。
+具体来说，当一个进程需要监听某个网络端口时，需要调用bind()函数将该端口与一个IP地址绑定。如果使用INADDR_ANY作为IP地址参数，就表示该端口可以接受来自任何IP地址的连接请求。这样，无论是本地主机还是远程主机，只要它们能够访问该端口，就可以与该进程建立连接。
+receive bind地址时，要指定为INADDR_ANY，不能写本地网卡的地址192.168.203.128.
+
+receive侧receive.c：
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+struct sockaddr_in localSock;
+struct ip_mreq group;
+int sd;
+char databuf[1024];
+int datalen = sizeof(databuf);
+
+int main (int argc, char *argv[])
+{
+  /*
+   * Create a datagram socket on which to receive.
+   */
+  sd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sd < 0) {
+    perror("opening datagram socket");
+    exit(1);
+  }
+  /*
+   * Enable SO_REUSEADDR to allow multiple instances of this
+   * application to receive copies of the multicast datagrams.
+   */
+  {
+    int reuse=1;
+    if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR,
+                   (char *)&reuse, sizeof(reuse)) < 0) {
+      perror("setting SO_REUSEADDR");
+      close(sd);
+      exit(1);
+    }
+  }
+  /*
+   * Bind to the proper port number with the IP address
+   * specified as INADDR_ANY.
+   */
+  memset((char *) &localSock, 0, sizeof(localSock));
+  localSock.sin_family = AF_INET;
+  localSock.sin_port = htons(5555);
+  localSock.sin_addr.s_addr  = INADDR_ANY;
+  //localSock.sin_addr.s_addr  = inet_addr("192.168.203.128");
+
+  if (bind(sd, (struct sockaddr*)&localSock, sizeof(localSock))) {
+    perror("binding datagram socket");
+    close(sd);
+    exit(1);
+  }
+  /*
+   * Join the multicast group 225.1.1.1 on the local 9.5.1.1
+   */
+  group.imr_multiaddr.s_addr = inet_addr("225.1.1.1");
+  //group.imr_interface.s_addr = inet_addr("127.0.0.1");
+  group.imr_interface.s_addr = inet_addr("192.168.203.128");
+  if (setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+                 (char *)&group, sizeof(group)) < 0) {
+    perror("adding multicast group");
+    close(sd);
+    exit(1);
+  }
+
+  /*
+   * Read from the socket.
+   */
+  datalen = sizeof(databuf);
+  if (read(sd, databuf, datalen) < 0) {
+    perror("reading datagram message");
+    close(sd);
+    exit(1);
+  }
+  else
+  {
+    printf("get datagram message ok! n");
+    //printf("The message from multicast server is: "%s"n", databuf);
+    for (int i = 0; i<datalen; i++) {
+      printf("i:%d, %x\n", i, databuf[i]);
+    }
+  }
+  return 0;
+}
+
+
+发送侧send.c，不需要加入多播组，只用往多播地址发送数据即可，但是要主要发送出去的网卡：
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+struct in_addr localInterface;
+struct sockaddr_in groupSock;
+int sd;
+char databuf[1024] = "Multicast Data MSG!";
+int datalen = sizeof(databuf);
+
+int main (int argc, char *argv[])
+  /*
+   * Create a datagram socket on which to send.
+   */
+  sd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sd < 0) {
+    perror("opening datagram socket");
+    exit(1);
+  }
+
+  /*
+   * Initialize the group sockaddr structure with a
+   * group address of 225.1.1.1 and port 5555.
+   */
+  memset((char *) &groupSock, 0, sizeof(groupSock));
+  groupSock.sin_family = AF_INET;
+  groupSock.sin_addr.s_addr = inet_addr("225.1.1.1");
+  groupSock.sin_port = htons(5555);
+  /*
+   * Disable loopback so you do not receive your own datagrams.
+   */
+  {
+    char loopch=0;
+    if (setsockopt(sd, IPPROTO_IP, IP_MULTICAST_LOOP,
+                   (char *)&loopch, sizeof(loopch)) < 0) {
+      perror("setting IP_MULTICAST_LOOP:");
+      close(sd);
+      exit(1);
+    }
+  }
+
+  /*
+   * Set local interface for outbound multicast datagrams.
+   */
+  localInterface.s_addr = inet_addr("127.0.0.1");
+  if (setsockopt(sd, IPPROTO_IP, IP_MULTICAST_IF,
+                 (char *)&localInterface,
+                 sizeof(localInterface)) < 0) {
+    perror("setting local interface");
+    exit(1);
+  }
+
+  /*
+   * Send a message to the multicast group specified by the
+   * groupSock sockaddr structure.
+   */
+  if (sendto(sd, databuf, datalen, 0,
+             (struct sockaddr*)&groupSock,
+             sizeof(groupSock)) < 0)
+  {
+    perror("sending datagram message");
+  }
+  else
+  {
+    printf("sending datagram message ok! n");
+    printf("The message send to multicast server is: "%s"n", databuf);
+  }
+  return 0;
+}
+
+
+
+
+
