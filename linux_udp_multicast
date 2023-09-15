@@ -76,8 +76,138 @@ UDP协议格式： 16位源端口号+16位目的端口号+16位UDP数据长度+1
 DNS 协议
 DNS 协议是 域名系统协议，英文全称是 Domain Name System，它也是应用层的协议之一，DNS 协议是一个将域名和 IP 相互映射的分布式数据库系统。DNS 缓存能够加快网络资源的访问。
 
+IP报文头定义：https://www.rfc-editor.org/rfc/rfc791
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |Version|  IHL  |Type of Service|          Total Length         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |         Identification        |Flags|      Fragment Offset    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  Time to Live |    Protocol   |         Header Checksum       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       Source Address                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                    Destination Address                        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                    Options                    |    Padding    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Version:  4 bits
+    The Version field indicates the format of the internet header.  This
+    document describes version 4.
+
+TTL   -  Time To Live
+Protocol:  8 bits
+
+    This field indicates the next level protocol used in the data
+    portion of the internet datagram.  The values for various protocols
+    are specified in "Assigned Numbers"
+
+标识是那种协议，Protocol ，https://www.rfc-editor.org/rfc/rfc790
+TCP是6，
+UDP是17
+
+                   ASSIGNED INTERNET PROTOCOL NUMBERS
+
+   In the Internet Protocol (IP) [33] there is a field, called Protocol,
+   to identify the the next level protocol.  This is an 8 bit field.
+
+   Assigned Internet Protocol Numbers
+
+      Decimal    Octal      Protocol Numbers                  References
+      -------    -----      ----------------                  ----------
+           0       0         Reserved                              [JBP]
+           1       1         ICMP                               [53,JBP]
+           2       2         Unassigned                            [JBP]
+           3       3         Gateway-to-Gateway              [48,49,VMS]
+           4       4         CMCC Gateway Monitoring Message [18,19,DFP]
+           5       5         ST                                 [20,JWF]
+           6       6         TCP                                [34,JBP]
+           7       7         UCL                                    [PK]
+           8      10         Unassigned                            [JBP]
+           9      11         Secure                                [VGC]
+          10      12         BBN RCC Monitoring                    [VMS]
+          11      13         NVP                                 [12,DC]
+          12      14         PUP                                [4,EAT3]
+          13      15         Pluribus                             [RDB2]
+          14      16         Telenet                              [RDB2]
+          15      17         XNET                              [25,JFH2]
+          16      20         Chaos                                [MOON]
+          17      21         User Datagram                      [42,JBP]
+          18      22         Multiplexing                       [13,JBP]
+          19      23         DCN                                  [DLM1]
+          20      24         TAC Monitoring                     [55,RH6]
+       21-62   25-76         Unassigned                            [JBP]
+          63      77         any local network                     [JBP]
+          64     100         SATNET and Backroom EXPAK            [DM11]
+          65     101         MIT Subnet Support                    [NC3]
+       66-68 102-104         Unassigned                            [JBP]
+          69     105         SATNET Monitoring                    [DM11]
+          70     106         Unassigned                            [JBP]
+          71     107         Internet Packet Core Utility         [DM11]
+       72-75 110-113         Unassigned                            [JBP]
+          76     114         Backroom SATNET Monitoring           [DM11]
+          77     115         Unassigned                            [JBP]
+          78     116         WIDEBAND Monitoring                  [DM11]
+          79     117         WIDEBAND EXPAK                       [DM11]
+      80-254 120-376         Unassigned                            [JBP]
+         255     377         Reserved                              [JBP]
 
 
+应用层协议关系：
+  The following diagram illustrates the place of the internet protocol
+  in the protocol hierarchy:
+                 +------+ +-----+ +-----+     +-----+
+                 |Telnet| | FTP | | TFTP| ... | ... |
+                 +------+ +-----+ +-----+     +-----+
+                       |   |         |           |
+                      +-----+     +-----+     +-----+
+                      | TCP |     | UDP | ... | ... |
+                      +-----+     +-----+     +-----+
+                         |           |           |
+                      +--------------------------+----+
+                      |    Internet Protocol & ICMP   |
+                      +--------------------------+----+
+                                     |
+                        +---------------------------+
+                        |   Local Network Protocol  |
+                        +---------------------------+
+
+
+
+Ethernet II协议帧格式：
+目的mac地址： 6字节，接收设备的mac地址
+源mac地址： 6字节，发送设备的mac地址
+类型： 占2个字节，用于标记数据（playload）的协议类型。假设收到的是ARP数据，那么Type就是0x0806
+Ethernet II帧格式
+	    +-----------+-----------+-------------+--------------------+----------+
+            |   DMAC    |   SMAC    |     Type    |          Data      |   FCS    |
+            |  6 Bytes  |  6 Bytes  |   2 Bytes   |  Variable length   | 4 Bytes  |
+            +-----------+-----------+-------------+--------------------+----------+
+            |                                                                     |
+                     |                                                          |
+                               |                                             |
+                                        |                                  |
+                                                |                         |
+                                                       |                 |
+            +-------------+-----------+----------------+-----------------+
+            |   帧间隙     |前同步码   |  帧开始定界符    |  Ethernet Frame |
+            |至少12Bytes  | 7 Bytes   |  1 Byte        | Variable length |
+            +-------------+-----------+----------------+-----------------+
+
+
+
+七层网络协议：
+应用层：提供各种各样的应用层协议,为用户与网络之间提供一个打交道的接口，DNS，POP3，SNMP，Telnet等等
+表示层：提供应用层数据的公共表示,即统一数据格式,从而使得数据能在两个系统中传输
+会话层：负责应用程序之间建立、维持和中断会话，同时也提供对设备和结点之间的会话控制，协调系统和服务之间的交流，并通过提供单工、半双工和全双工3种不同的通信方式，
+       使系统和服务之间有序地进行通信。LDAP、RPC、
+传输层：主要功能负责数据传输时端到端的完整性，即在网络上建立发送主机和目的主机之间的逻辑连接，从而隐藏了上一层提供数据传输时任何网络独立信息。TCP、UDP
+网络层：负责数据从一个结点到另一个结点的传输，并根据地址（IP/IPX地址），为信息在网络中传输是选择最佳路径。IP,ICMP,ICMPv6,ARP,RARP
+数据链路层：主要功能是负责信息从一个结点到另一人结点的物理传输，检测在物理层上传输可能发生的错误并进行纠错，同时处理网络拓扑结构和流量控制等问题。IEEE 802.3,WIFI(IEEE 802.11), Ethernet II。
+物理层：主要功能是直接在物理传输介质上发送和接收数据位，为数据链路层提供物理连接。
 
 
 receive侧receive.c：
