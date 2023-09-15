@@ -39,13 +39,141 @@ sysctl -w net.ipv4.conf.all.rp_filter=0
 cat /proc/sys/net/ipv4/conf/all/rp_filter
 cat /proc/sys/net/ipv4/conf/usb0/rp_filter
 
-
 测试用具：
 在windows上用PacketSender发送报文，在linux服务器中启动接收程序等待接收数据。
 发送报文不需要知道接收方的地址，只需要往组播地址和端口发送数据即可。
 接收报文需要加入组播组，并且绑定对应的端口。
 可以用packet sender发送报文，File-->settings --> Additional里面可以设置发送报文的网卡地址
 https://packetsender.com/
+
+
+1、ping命令指定网卡
+~ # ping -I eth0 145.192.1.22
+PING 145.192.1.22 (145.192.1.22): 56 data bytes
+64 bytes from 145.192.1.22: seq=0 ttl=128 time=0.969 ms
+64 bytes from 145.192.1.22: seq=1 ttl=128 time=0.861 ms
+多网卡如果不指定网卡ping，报文不一定是从想要的网口出来。
+子网掩码是一样的，系统不知道从哪个口发报文出去
+
+这样报文145.192.1.xx会优先从eth0出去。
+~ # ifconfig eth0 145.192.1.67 netmask 255.255.255.0 up
+~ # route
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+145.192.0.0     *               255.255.0.0     U     0      0        0 usb0
+145.192.0.0     *               255.255.0.0     U     0      0        0 eth1
+145.192.1.0     *               255.255.255.0   U     0      0        0 eth0
+
+windows也能ping通了
+C:\Users\PC>ping 145.192.1.67 -S 145.192.1.22
+
+正在 Ping 145.192.1.67 从 145.192.1.22 具有 32 字节的数据:
+来自 145.192.1.67 的回复: 字节=32 时间=1ms TTL=64
+来自 145.192.1.67 的回复: 字节=32 时间=1ms TTL=64
+
+
+不ping通也能收到组播报文
+~ # route
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+145.192.0.0     *               255.255.0.0     U     0      0        0 usb0
+145.192.0.0     *               255.255.0.0     U     0      0        0 eth0
+145.192.0.0     *               255.255.0.0     U     0      0        0 eth1
+
+~ # /home/gdu-tech/receive 226.0.0.22 7048 145.192.1.67
+groupIp:226.0.0.22, groupPort:7048, localIp:145.192.1.67
+read len:11
+get datagram message ok! ni:0, 68
+i:1, 65
+i:2, 6c
+i:3, 6c
+i:4, 6f
+i:5, 74
+i:6, 74
+i:7, 74
+i:8, 74
+i:9, 74
+i:10, d
+
+
+加上br0桥接后：
+ifconfig eth0 up
+ifconfig eth1 up
+sleep 1
+brctl addbr br0
+brctl addif br0 eth0
+brctl addif br0 eth1
+brctl addif br0 usb0
+sleep 1
+ifconfig br0 145.192.1.64 netmask 255.255.255.0 up
+sleep 1
+ifconfig usb0 145.192.1.66
+sleep 1
+ifconfig eth0 145.192.1.67
+sleep 1
+ifconfig eth1 145.192.1.65
+
+
+~ # brctl show
+bridge name     bridge id               STP enabled     interfaces
+br0             8000.be1c4c62135f       no              eth0
+                                                      
+arp: Address Resolution Protocol(地址解析协议)
+arp查询地址路由信息：
+~ # arp
+? (145.192.1.22) at bc:0f:f3:79:35:d4 [ether]  on br0
+? (145.192.1.222) at <incomplete>  on br0
+? (145.192.1.15) at <incomplete>  on br0
+
+145.192.1.22是windows笔记本电脑的IP地址
+bc:0f:f3:79:35:d4是windows笔记本电脑的MAC地址
+
+~ # route
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+145.192.0.0     *               255.255.0.0     U     0      0        0 usb0
+145.192.0.0     *               255.255.0.0     U     0      0        0 eth0
+145.192.0.0     *               255.255.0.0     U     0      0        0 eth1
+145.192.1.0     *               255.255.255.0   U     0      0        0 br0
+
+为什么br0的子网掩码要设置为255.255.255.0?
+
+br0: 145.192.1.64
+eth0:145.192.1.67
+eth1:145.192.1.65
+usb0:145.192.1.66
+
+
+给组播地址226.0.0.22的7047端口发送数据，数据从交接的br口出来，145.192.1.64
+./send 226.0.0.22 7047 145.192.1.64&
+
+需要先关掉windows电脑的防火墙，不然收不到数据报文
+windows电脑用PacketSender程序接收组播报文
+File --> Settings
+1、使能UDP服务模式，端口号设置为7047
+Enable UDP Servers
+2、绑定UDP地址
+Additional UDP/TCP/SSL Settings
+Bind This，设置为和单板连接的网卡的IP地址：145.192.1.22
+3、加入组播组
+Multicast
+IP Multicast Address设置为组播地址226.0.0.26
+
+如果usb0也连上了，组播也会从usb0口出来
+/home/gdu-tech/test_tool # ./tcpdump -i usb0 udp
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on usb0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+01:08:17.713995 IP 145.192.1.64.34945 > 226.0.0.22.7047: UDP, length 30
+
+eth0口的抓包：
+/home/gdu-tech/test_tool # ./tcpdump -i eth0 udp
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on eth0, link-type EN10MB (Ethernet), snapshot length 
+01:10:02.735010 IP 145.192.1.64.34945 > 226.0.0.22.7047: UDP, length 30
+01:10:07.736005 IP 145.192.1.64.34945 > 226.0.0.22.7047: UDP, length 30
+
+
+
 
 
 INADDR_ANY是一个常量，它指代的是一个特殊的IP地址，即0.0.0.0。在网络编程中，当一个进程需要绑定一个网络端口时，可以使用INADDR_ANY来指定该端口可以接受来自任何IP地址的连接请求。
@@ -361,16 +489,15 @@ int main (int argc, char *argv[])
    * Send a message to the multicast group specified by the
    * groupSock sockaddr structure.
    */
-  if (sendto(sd, databuf, datalen, 0,
-             (struct sockaddr*)&groupSock,
-             sizeof(groupSock)) < 0)
+  for (;;)
   {
-    perror("sending datagram message");
-  }
-  else
-  {
-    printf("sending datagram message ok! n");
-    printf("The message send to multicast server is: "%s"n", databuf);
+    if (sendto(sd, databuf, datalen, 0,
+              (struct sockaddr*)&groupSock,
+              sizeof(groupSock)) < 0)
+    {
+      perror("sending datagram message");
+    }
+    sleep(5);
   }
   return 0;
 }
