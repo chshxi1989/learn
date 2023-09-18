@@ -144,7 +144,7 @@ Address Resolution Protocol (request)
     Target MAC address: 00:00:00_00:00:00 (00:00:00:00:00:00)
     Target IP address: 145.192.1.15
 
-
+Opcode: request(1)表示是请求报文。如果是reply(2)，就是回复的报文了。
 
 ~ # route
 Kernel IP routing table
