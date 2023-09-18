@@ -126,7 +126,25 @@ arp查询地址路由信息：
 ? (145.192.1.15) at <incomplete>  on br0
 
 145.192.1.22是windows笔记本电脑的IP地址
-bc:0f:f3:79:35:d4是windows笔记本电脑的MAC地址
+bc:0f:f3:79:35:d4是windows笔记本电脑的MAC地址。
+ARP协议就需要采用以太网的"广播"功能：将请求包以广播的形式发送，交换机或WiFi设备（无线路由器）收到广播包时，会将此数据发给同一局域网的其他所有主机。
+那么，什么是广播？对于初学者而言，我们只需要知道，大部分的广播包，它们有一个共同特征：二层封装时目的MAC是全f（ff.ff.ff.ff.ff.ff）或三层封装时目的IP是全1（255.255.255.255）。可以这样更方便的记住：目的地址最大的，就是广播。
+
+用wireshark抓到的一个arp包的数据：
+Frame 13: 60 bytes on wire (480 bits), 60 bytes captured (480 bits) on interface \Device\NPF_{6D0C34A0-A4B9-484C-A1BC-84AD8D26B577}, id 0
+Ethernet II, Src: ba:ea:a4:0d:61:17 (ba:ea:a4:0d:61:17), Dst: Broadcast (ff:ff:ff:ff:ff:ff)
+Address Resolution Protocol (request)
+    Hardware type: Ethernet (1)
+    Protocol type: IPv4 (0x0800)
+    Hardware size: 6
+    Protocol size: 4
+    Opcode: request (1)
+    Sender MAC address: ba:ea:a4:0d:61:17 (ba:ea:a4:0d:61:17)
+    Sender IP address: 145.192.1.64
+    Target MAC address: 00:00:00_00:00:00 (00:00:00:00:00:00)
+    Target IP address: 145.192.1.15
+
+
 
 ~ # route
 Kernel IP routing table
@@ -183,6 +201,7 @@ listening on eth0, link-type EN10MB (Ethernet), snapshot length
 例如主机在收听组播频道224.0.64.32，但在数据链路层由于ip地址224.128.64.32对应的组播MAC地址相同，因此也可能会收到224.128.64.32的数据报，需要在网络层根据ip过滤。
 如226.0.0.22的组播地址，再数据链路层的以太报文，dmac是Destination: IPv4mcast_16 (01:00:5e:00:00:16)
 01:00:5e是固定的，后面3个对应的是0.0.22
+
 
 
 
