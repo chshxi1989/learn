@@ -119,6 +119,15 @@ bridge name     bridge id               STP enabled     interfaces
 br0             8000.be1c4c62135f       no              eth0
                                                       
 arp: Address Resolution Protocol(地址解析协议)
+1. 首先检查自己的ARP缓存表，是否存在目的IP对应的目的MAC，如存在则不会触发ARP请求与应答过程，直接根据ARP缓存表项封装目的MAC；
+2. 不存在arp缓存表，触发arp请求，对方收到arp请求，根据arp报文中的目的IP判断，是否寻找的主机是自己，如果是则发送arp响应携带自己的MAC地址， 回复对方。
+示例：
+1，主机A发送一个数据包给主机C之前，首先要获取主机C的MAC地址。
+2，主机A先查询自己的ARP缓存表，看是否存在C的MAC，如果存在则直接封装C的MAC，如果不存在则发送ARP request；
+3，主机A发送时二层封装S.MAC为自己的MAC地址AA，目的MAC为FF.FF.FF.FF.FF.FF，ARP消息中封装 S.MAC AA S.IP 0.1D.MAC 00/FFD.IP 0.3
+4，主机C收到后进行解封装发现D.MAC为FF.FF.FF.FF.FF.FF接收后，交于ARP协议处理，ARP协议 再拆包发现D.IP与自己的IP相同则进行接收（将对方IP、MAC记录下放入arp缓存表） 并进行响应arp reply（告诉对方自己的IP、MAC）；
+5，主机A收到主机C回复的ARP reply之后根据该消息中携带的IP、MAC，生成相应的ARP缓存表后续主机A、主机C之间的互访则直接根据ARP缓存表进行封装，不需要再发送ARP request
+
 arp查询地址路由信息：
 ~ # arp
 ? (145.192.1.22) at bc:0f:f3:79:35:d4 [ether]  on br0
