@@ -5,16 +5,14 @@ bind函数是将socket和本地ip/port关联，只有发送到此ip/port的报�
 如果发送报文时想要从具体的那个网口发送报文，需要用bind绑定该网卡对应的ip地址
 
 What does bind() function do in TCP/UDP server?
-
 Answer: Bind() function in socket programming is used to associate the socket with local address i.e. IP Address, port and address family.
 
 int bind(int sockfd,struct sockaddr *servaddr,int addrlength);
 
 There could be many combination of IP address and ports e.g. (10.17.18.19, 6400), (10.17.18.19, 6500), (10.17.18.19, 6600) and so on, a server can use.
-
 Let’s say we have 3 servers A, B and C on the same machine. And a client wants to connect to server B. what is the identification of server B? How would we connect to it?
-
-So, to provide an identification to a server, Bind () function associate sockets with IP address and port.  Now, if we bind socket with address e.g. (10.17.18.19, 6500) for server B, a client can connect to this particular server specifying the same IP address and port.
+So, to provide an identification to a server, Bind () function associate sockets with IP address and port.  
+Now, if we bind socket with address e.g. (10.17.18.19, 6500) for server B, a client can connect to this particular server specifying the same IP address and port.
 
 Snips below:
 //Create a socket i.e for UDP server
