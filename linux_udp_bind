@@ -1,0 +1,37 @@
+bind函数是将socket和本地ip/port关联，只有发送到此ip/port的报文，才会被socket解析
+有个特例，如果绑定的ip是htonl(INADDR_ANY),即0.0.0.0，表示所有发送到这个端口的报文都会被此socket解析，无论报文的目的ip是多少
+对于udp多播来说，接收报文时，socket要bind到INADDR_ANY，因为udp多播报文的目的地址是类似226.0.0.22，不是网口对应的ip。
+
+如果发送报文时想要从具体的那个网口发送报文，需要用bind绑定该网卡对应的ip地址
+
+What does bind() function do in TCP/UDP server?
+
+Answer: Bind() function in socket programming is used to associate the socket with local address i.e. IP Address, port and address family.
+
+int bind(int sockfd,struct sockaddr *servaddr,int addrlength);
+
+There could be many combination of IP address and ports e.g. (10.17.18.19, 6400), (10.17.18.19, 6500), (10.17.18.19, 6600) and so on, a server can use.
+
+Let’s say we have 3 servers A, B and C on the same machine. And a client wants to connect to server B. what is the identification of server B? How would we connect to it?
+
+So, to provide an identification to a server, Bind () function associate sockets with IP address and port.  Now, if we bind socket with address e.g. (10.17.18.19, 6500) for server B, a client can connect to this particular server specifying the same IP address and port.
+
+Snips below:
+//Create a socket i.e for UDP server
+	sockfd=socket(AF_INET,SOCK_DGRAM,0);
+	
+	//Fill the address structure 
+	servaddr.sin_family = AF_INET; //address family.
+	servaddr.sin_addr.s_addr=inet_addr("10.17.18.19"));	
+	servaddr.sin_port=htons(6500);
+	
+	//Bind above socket and address
+	bind(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr));
+
+
+Notes:
+
+Since TCP/UDP server continuously wait and listen to incoming clients, it requires an identity, hence use bind() functions. 
+Clients only need to know the address of server, that’s why they don’t use bind(), however you use bind() with clients there is no harm but useless excluding some cases if any.
+If we use INADDR_ANY e.g. servaddr.sin_addr.s_addr=htonl(INADDR_ANY), we are binding to all valid IPs the machine has. 
+So it doesn’t matter what IP, a client is using to connect to server, it will work. For example if you have Wi-Fi and Ethernet on your machine, there should be 2 IPs.
