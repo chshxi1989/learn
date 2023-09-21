@@ -239,6 +239,22 @@ UDP 协议就是 用户数据报协议，也就是 User Datagram Protocol，UDP 
 也就是说，当报文发送之后，是无法得知其是否安全完整到达的。UDP 是一种无连接的协议，传输数据之前源端和终端无需建立连接，不对数据报进行检查与修改，
 无须等待对方的应答，会出现分组丢失、重复、乱序等现象。但是 UDP 具有较好的实时性，工作效率较 TCP 协议高。
 UDP协议格式： 16位源端口号+16位目的端口号+16位UDP数据长度+16位UDP数据校验和+UDP数据
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |          source port           |          target port         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |         length                 |           checksum           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                             data                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+UDP报文自身有crc校验，会保证数据没有被修改，应用层不需要再增加crc校验。但是不保证不会丢包。
+The UDP protocol does not guarantee that messages are delivered in order or delivered at all, 
+but it does ensure that those messages which do get delivered are complete and unchanged by automatically including a 16-bit checksum. 
+That means adding another 16-bit checksum on the application layer is usually redundant.
+
+
+
 
 端口：
 按端口号可分为3大类：
