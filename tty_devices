@@ -1,7 +1,13 @@
 1、串口设备/dev/ttyAMA3
 2、用stty命令配置串口
     stty -F /dev/ttyAMA3 ispeed 230400 ospeed 230400 cs8
+    stty -F /dev/ttyAMA3 speed 230400 cs8
 3、往串口设备写数据，方便硬件量设备信号，是否有波形
     echo FE55FE55FE55FE55FE55FE55FE55FE55FE55 >/dev/ttyAMA3
 4、从串口设备读数据
     od -t x1 /dev/ttyAMA3
+5、查看串口收发情况
+~ # cat /proc/tty/driver/ttyAMA
+serinfo:1.0 driver revision:
+0: uart:PL011 rev2 mmio:0x12100000 irq:13 tx:33841 rx:0 RTS|DTR|DSR|CD|RI
+
