@@ -25,7 +25,7 @@ serinfo:1.0 driver revision:
 发送的字符是U，对应ascii是01010101，电路上的bit位是先发前导码0，再发数据1,0,1,0,1,0,1,0，最后再发空闲常高。
 先发低bit位，再发高bit位。
 
-tty驱动中VMIN和VTIME的含义：
+tty驱动中VMIN和VTIME的含义：VTIME的单位是0.1s。
 http://unixwiz.net/techtips/termios-vmin-vtime.html#:~:text=VMIN%20is%20a%20character%20count%20ranging%20from%200,this%20suggests%20four%20combinations%20that%20we%27ll%20discuss%20below.
 VMIN is a character count ranging from 0 to 255 characters, and VTIME is time measured in 0.1 second intervals, 
 (0 to 25.5 seconds). The value of "zero" is special to both of these parameters, and this suggests four combinations 
