@@ -1,0 +1,562 @@
+Linux系统调用详解（如何从用户空间进入内核空间）
+https://zhuanlan.zhihu.com/p/492164753?utm_id=0
+
+
+ioctl的定义：
+chengshangxian@ubuntu:/usr/include/sys$ ls -al ioctl.h
+lrwxrwxrwx 1 root root 31 Feb 24  2022 ioctl.h -> ../x86_64-linux-gnu/sys/ioctl.h
+
+
+如设置tty参数的：
+D:\source_code\glibc-2.38\glibc-2.38\termios\tcsetattr.c
+::tcsetattr (_fd, TCSANOW, &options);
+
+tcsetattr的定义：
+D:\source_code\glibc-2.38\glibc-2.38\sysdeps\unix\sysv\linux\tcsetattr.c
+/* Set the state of FD to *TERMIOS_P.  */
+int
+__tcsetattr (int fd, int optional_actions, const struct termios *termios_p)
+{
+  struct __kernel_termios k_termios;
+  unsigned long int cmd;
+
+  switch (optional_actions)
+    {
+    case TCSANOW:
+      cmd = TCSETS;
+      break;
+    case TCSADRAIN:
+      cmd = TCSETSW;
+      break;
+    case TCSAFLUSH:
+      cmd = TCSETSF;
+      break;
+    default:
+      return INLINE_SYSCALL_ERROR_RETURN_VALUE (EINVAL);
+    }
+  k_termios.c_iflag = termios_p->c_iflag & ~IBAUD0;
+  k_termios.c_oflag = termios_p->c_oflag;
+  k_termios.c_cflag = termios_p->c_cflag;
+  k_termios.c_lflag = termios_p->c_lflag;
+  k_termios.c_line = termios_p->c_line;
+#if _HAVE_C_ISPEED && _HAVE_STRUCT_TERMIOS_C_ISPEED
+  k_termios.c_ispeed = termios_p->c_ispeed;
+#endif
+#if _HAVE_C_OSPEED && _HAVE_STRUCT_TERMIOS_C_OSPEED
+  k_termios.c_ospeed = termios_p->c_ospeed;
+#endif
+  memcpy (&k_termios.c_cc[0], &termios_p->c_cc[0],
+	  __KERNEL_NCCS * sizeof (cc_t));
+
+  return INLINE_SYSCALL (ioctl, 3, fd, cmd, &k_termios);
+}
+weak_alias (__tcsetattr, tcsetattr)
+
+TCSANOW对应TCSETS
+TCSETS的定义，对应0x5402
+/usr/include/asm-generic/ioctls.h
+#define TCGETS          0x5401
+#define TCSETS          0x5402
+#define TCSETSW         0x5403
+#define TCSETSF         0x5404
+
+__ioctl 函数的实现：
+D:\source_code\glibc-2.38\glibc-2.38\sysdeps\unix\sysv\linux\ioctl.c
+int
+__ioctl (int fd, unsigned long int request, ...)
+{
+  va_list args;
+  va_start (args, request);
+  void *arg = va_arg (args, void *);
+  va_end (args);
+
+  int r;
+  if (!__ioctl_arch (&r, fd, request, arg))
+    {
+      r = INTERNAL_SYSCALL_CALL (ioctl, fd, request, arg);
+      if (__glibc_unlikely (INTERNAL_SYSCALL_ERROR_P (r)))
+	{
+	  __set_errno (-r);
+	  return -1;
+	}
+    }
+  return r;
+}
+libc_hidden_def (__ioctl)
+weak_alias (__ioctl, ioctl)
+
+INTERNAL_SYSCALL_CALL是系统调用的接口。
+宏函数 INTERNAL_SYSCALL_CALL 定义在 sysdeps/unix/sysdep.h 文件中
+D:\source_code\glibc-2.38\glibc-2.38\sysdeps\unix\sysdep.h
+#define __SYSCALL_CONCAT_X(a,b)     a##b
+#define __SYSCALL_CONCAT(a,b)       __SYSCALL_CONCAT_X (a, b)
+#define __INTERNAL_SYSCALL0(name) \
+  INTERNAL_SYSCALL (name, 0)
+#define __INTERNAL_SYSCALL1(name, a1) \
+  INTERNAL_SYSCALL (name, 1, a1)
+#define __INTERNAL_SYSCALL2(name, a1, a2) \
+  INTERNAL_SYSCALL (name, 2, a1, a2)
+#define __INTERNAL_SYSCALL3(name, a1, a2, a3) \
+  INTERNAL_SYSCALL (name, 3, a1, a2, a3)
+#define __INTERNAL_SYSCALL4(name, a1, a2, a3, a4) \
+	   INTERNAL_SYSCALL (name, 4, a1, a2, a3, a4)
+#define __INTERNAL_SYSCALL5(name, a1, a2, a3, a4, a5) \
+  INTERNAL_SYSCALL (name, 5, a1, a2, a3, a4, a5)
+#define __INTERNAL_SYSCALL6(name, a1, a2, a3, a4, a5, a6) \
+  INTERNAL_SYSCALL (name, 6, a1, a2, a3, a4, a5, a6)
+#define __INTERNAL_SYSCALL7(name, a1, a2, a3, a4, a5, a6, a7) \
+  INTERNAL_SYSCALL (name, 7, a1, a2, a3, a4, a5, a6, a7)
+
+#define __INTERNAL_SYSCALL_NARGS_X(a,b,c,d,e,f,g,h,n,...) n
+#define __INTERNAL_SYSCALL_NARGS(...) \
+  __INTERNAL_SYSCALL_NARGS_X (__VA_ARGS__,7,6,5,4,3,2,1,0,)
+#define __INTERNAL_SYSCALL_DISP(b,...) \
+  __SYSCALL_CONCAT (b,__INTERNAL_SYSCALL_NARGS(__VA_ARGS__))(__VA_ARGS__)
+
+
+/* Issue a syscall defined by syscall number plus any other argument required.
+   It is similar to INTERNAL_SYSCALL macro, but without the need to pass the
+   expected argument number as second parameter.  */
+#define INTERNAL_SYSCALL_CALL(...) \
+  __INTERNAL_SYSCALL_DISP (__INTERNAL_SYSCALL, __VA_ARGS__)
+
+
+__INTERNAL_SYSCALL_NARGS(...)用来计算可变参数的个数-1，
+__INTERNAL_SYSCALL_NARGS(ioctl, fd, request, arg) ==> __INTERNAL_SYSCALL_NARGS_X (ioctl, fd, request, arg,7,6,5,4,3,2,1,0,) ==> n = 3
+INTERNAL_SYSCALL_CALL(ioctl, fd, request, arg) ==> __INTERNAL_SYSCALL_DISP(__INTERNAL_SYSCALL, ioctl, fd, request, arg)
+==> __SYSCALL_CONCAT(__INTERNAL_SYSCALL, __INTERNAL_SYSCALL_NARGS(__VA_ARGS__))(__VA_ARGS__)
+==> __SYSCALL_CONCAT(__INTERNAL_SYSCALL, 3)( ioctl, fd, request, arg), ioctl是syscall的name
+==> __INTERNAL_SYSCALL3( ioctl, fd, request, arg) ==> INTERNAL_SYSCALL (ioctl, 3, fd, request, arg)
+==> INTERNAL_SYSCALL_RAW(SYS_ify(ioctl), 3, fd, request, arg) ==>  INTERNAL_SYSCALL_RAW(__NR_ioctl, 3, fd, request, arg)
+__NR_ioctl的定义在文件/usr/include/x86_64-linux-gnu/asm/unistd_64.h定义：
+#define __NR_ioctl 16
+文件中总共有436个系统调用
+#ifndef _ASM_X86_UNISTD_64_H
+#define _ASM_X86_UNISTD_64_H 1
+
+#define __NR_read 0
+#define __NR_write 1
+#define __NR_open 2
+#define __NR_close 3
+#define __NR_stat 4
+#define __NR_fstat 5
+#define __NR_lstat 6
+#define __NR_poll 7
+#define __NR_lseek 8
+#define __NR_mmap 9
+#define __NR_mprotect 10
+#define __NR_munmap 11
+#define __NR_brk 12
+#define __NR_rt_sigaction 13
+#define __NR_rt_sigprocmask 14
+#define __NR_rt_sigreturn 15
+#define __NR_ioctl 16
+#define __NR_pread64 17
+#define __NR_pwrite64 18
+#define __NR_readv 19
+#define __NR_writev 20
+#define __NR_access 21
+#define __NR_pipe 22
+#define __NR_select 23
+#define __NR_sched_yield 24
+#define __NR_mremap 25
+#define __NR_msync 26
+
+
+D:\source_code\glibc-2.38\glibc-2.38\sysdeps\unix\sysv\linux\arm\sysdep.h
+定义INTERNAL_SYSCALL，
+#else /* ARM */
+# undef INTERNAL_SYSCALL_RAW
+# define INTERNAL_SYSCALL_RAW(name, nr, args...)		\
+  ({								\
+       register int _a1 asm ("r0"), _nr asm ("r7");		\
+       LOAD_ARGS_##nr (args)					\
+       _nr = name;						\
+       asm volatile ("swi	0x0	@ syscall " #name	\
+		     : "=r" (_a1)				\
+		     : "r" (_nr) ASM_ARGS_##nr			\
+		     : "memory");				\
+       _a1; })
+#endif
+#undef INTERNAL_SYSCALL
+#define INTERNAL_SYSCALL(name, nr, args...)			\
+	INTERNAL_SYSCALL_RAW(SYS_ify(name), nr, args)
+
+
+D:\source_code\glibc-2.38\glibc-2.38\sysdeps\unix\sysv\linux\arm\sysdep.h
+SYS_ify定义获得系统调用号：
+#define SYS_ify(syscall_name)	(__NR_##syscall_name)
+
+
+
+在kernel中定义ioctl响应函数：
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\serial\amba-pl011.c
+uart_ops的set_termios成员，
+static const struct uart_ops amba_pl011_pops = {
+	.tx_empty	= pl011_tx_empty,
+	.set_mctrl	= pl011_set_mctrl,
+	.get_mctrl	= pl011_get_mctrl,
+	.stop_tx	= pl011_stop_tx,
+	.start_tx	= pl011_start_tx,
+	.stop_rx	= pl011_stop_rx,
+	.throttle	= pl011_throttle_rx,
+	.unthrottle	= pl011_unthrottle_rx,
+	.enable_ms	= pl011_enable_ms,
+	.break_ctl	= pl011_break_ctl,
+	.startup	= pl011_startup,
+	.shutdown	= pl011_shutdown,
+	.flush_buffer	= pl011_dma_flush_buffer,
+	.set_termios	= pl011_set_termios,
+	.type		= pl011_type,
+	.config_port	= pl011_config_port,
+	.verify_port	= pl011_verify_port,
+#ifdef CONFIG_CONSOLE_POLL
+	.poll_init     = pl011_hwinit,
+	.poll_get_char = pl011_get_poll_char,
+	.poll_put_char = pl011_put_poll_char,
+#endif
+};
+
+static int pl011_probe(struct amba_device *dev, const struct amba_id *id)
+初始化uart_port信息：
+uap->port.ops = &amba_pl011_pops;
+
+amba uart driver定义：
+static struct uart_driver amba_reg = {
+	.owner			= THIS_MODULE,
+	.driver_name		= "ttyAMA",
+	.dev_name		= "ttyAMA",
+	.major			= SERIAL_AMBA_MAJOR,
+	.minor			= SERIAL_AMBA_MINOR,
+	.nr			= UART_NR,
+	.cons			= AMBA_CONSOLE,
+};
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\serial\serial_core.c
+int uart_register_driver(struct uart_driver *drv)
+驱动注册接口实现：
+int uart_register_driver(struct uart_driver *drv)
+{
+	struct tty_driver *normal;
+	int i, retval = -ENOMEM;
+
+	BUG_ON(drv->state);
+
+	/*
+	 * Maybe we should be using a slab cache for this, especia
+	 * Maybe we should be using a slab cache for this, especially if
+	 * we have a large number of ports to handle.
+	 */
+	drv->state = kcalloc(drv->nr, sizeof(struct uart_state), GFP_KERNEL);
+	if (!drv->state)
+		goto out;
+
+	normal = tty_alloc_driver(drv->nr, TTY_DRIVER_REAL_RAW |
+			TTY_DRIVER_DYNAMIC_DEV);
+	if (IS_ERR(normal)) {
+		retval = PTR_ERR(normal);
+		goto out_kfree;
+	}
+	drv->tty_driver = normal;
+
+	normal->driver_name	= drv->driver_name;
+	normal->name		= drv->dev_name;
+	normal->major		= drv->major;
+	normal->minor_start	= drv->minor;
+	normal->type		= TTY_DRIVER_TYPE_SERIAL;
+	normal->subtype		= SERIAL_TYPE_NORMAL;
+	normal->init_termios	= tty_std_termios;
+	normal->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
+	normal->init_termios.c_ispeed = normal->init_termios.c_ospeed = 9600;
+	normal->driver_state    = drv;
+	tty_set_operations(normal, &uart_ops);
+	/*
+	 * Initialise the UART state(s).
+	 */
+	for (i = 0; i < drv->nr; i++) {
+		struct uart_state *state = drv->state + i;
+		struct tty_port *port = &state->port;
+
+		tty_port_init(port);
+		port->ops = &uart_port_ops;
+	}
+	retval = tty_register_driver(normal);
+	if (retval >= 0)
+		return retval;
+	for (i = 0; i < drv->nr; i++)
+		tty_port_destroy(&drv->state[i].port);
+	tty_driver_kref_put(normal);
+out_kfree:
+	kfree(drv->state);
+out:
+	return retval;
+}
+EXPORT_SYMBOL(uart_register_driver);
+
+
+
+init_termios是初始化的参数，uart_ops是后面调用到的ioctl等函数指针接口。
+tty_set_operations(normal, &uart_ops);
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\serial\serial_core.c
+tty_operations类型结构体uart_ops：
+static const struct tty_operations uart_ops = {
+	.install	= uart_install,
+	.open		= uart_open,
+	.close		= uart_close,
+	.write		= uart_write,
+	.put_char	= uart_put_char,
+	.flush_chars	= uart_flush_chars,
+	.write_room	= uart_write_room,
+	.chars_in_buffer= uart_chars_in_buffer,
+	.flush_buffer	= uart_flush_buffer,
+	.ioctl		= uart_ioctl,
+	.throttle	= uart_throttle,
+	.unthrottle	= uart_unthrottle,
+	.send_xchar	= uart_send_xchar,
+	.set_termios	= uart_set_termios,
+	.set_ldisc	= uart_set_ldisc,
+	.stop		= uart_stop,
+	.start		= uart_start,
+	.hangup		= uart_hangup,
+	.break_ctl	= uart_break_ctl,
+	.wait_until_sent= uart_wait_until_sent,
+#ifdef CONFIG_PROC_FS
+	.proc_show	= uart_proc_show,
+#endif
+	.tiocmget	= uart_tiocmget,
+	.tiocmset	= uart_tiocmset,
+	.set_serial	= uart_set_info_user,
+	.get_serial	= uart_get_info_user,
+	.get_icount	= uart_get_icount,
+#ifdef CONFIG_CONSOLE_POLL
+	.poll_init	= uart_poll_init,
+	.poll_get_char	= uart_poll_get_char,
+	.poll_put_char	= uart_poll_put_char,
+#endif
+};
+
+static const struct tty_port_operations uart_port_ops = {
+	.carrier_raised = uart_carrier_raised,
+	.dtr_rts	= uart_dtr_rts,
+	.activate	= uart_port_activate,
+	.shutdown	= uart_tty_port_shutdown,
+};
+
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\tty_io.c
+tty driver注册
+int tty_register_driver(struct tty_driver *driver)
+
+
+/**
+ * tty_register_driver -- register a tty driver
+ * @driver: driver to register
+ *
+ * Called by a tty driver to register itself.
+ */
+int tty_register_driver(struct tty_driver *driver)
+{
+	int error;
+	int i;
+	dev_t dev;
+	struct device *d;
+
+	if (!driver->major) {
+		error = alloc_chrdev_region(&dev, driver->minor_start,
+						driver->num, driver->name);
+		if (!error) {
+			driver->major = MAJOR(dev);
+			driver->minor_start = MINOR(dev);
+		}
+	} else {
+		dev = MKDEV(driver->major, driver->minor_start);
+		error = register_chrdev_region(dev, driver->num, driver->name);
+	}
+	if (error < 0)
+		goto err;
+
+	if (driver->flags & TTY_DRIVER_DYNAMIC_ALLOC) {
+		error = tty_cdev_add(driver, dev, 0, driver->num);
+		if (error)
+			goto err_unreg_char;
+	}
+
+	mutex_lock(&tty_mutex);
+	list_add(&driver->tty_drivers, &tty_drivers);
+	mutex_unlock(&tty_mutex);
+
+	if (!(driver->flags & TTY_DRIVER_DYNAMIC_DEV)) {
+		for (i = 0; i < driver->num; i++) {
+			d = tty_register_device(driver, i, NULL);
+			if (IS_ERR(d)) {
+				error = PTR_ERR(d);
+				goto err_unreg_devs;
+			}
+		}
+	}
+	proc_tty_register_driver(driver);
+	driver->flags |= TTY_DRIVER_INSTALLED;
+	return 0;
+err_unreg_devs:
+	for (i--; i >= 0; i--)
+		tty_unregister_device(driver, i);
+	mutex_lock(&tty_mutex);
+	list_del(&driver->tty_drivers);
+	mutex_unlock(&tty_mutex);
+
+err_unreg_char:
+	unregister_chrdev_region(dev, driver->num);
+err:
+	return error;
+}
+EXPORT_SYMBOL(tty_register_driver);
+
+D:\source_code\linux-6.4.8\linux-6.4.8\fs\proc\proc_tty.c
+将driver相关的信息写到/proc文件夹中
+/*
+ * This function is called by tty_register_driver() to handle
+ * registering the driver's /proc handler into /proc/tty/driver/<foo>
+ */
+void proc_tty_register_driver(struct tty_driver *driver)
+	struct proc_dir_entry *ent;
+		
+	if (!driver->driver_name || driver->proc_entry ||
+	    !driver->ops->proc_show)
+		return;
+
+	ent = proc_create_single_data(driver->driver_name, 0, proc_tty_driver,
+			       driver->ops->proc_show, driver);
+	driver->proc_entry = ent;
+}
+
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\termios_internal.h
+D:\source_code\linux-6.4.8\linux-6.4.8\arch\mips\include\uapi\asm\termbits.h
+termios接口：
+#define INIT_C_CC {		\
+	[VINTR] = 'C'-0x40,	\
+	[VQUIT] = '\\'-0x40,	\
+	[VERASE] = '\177',	\
+	[VKILL] = 'U'-0x40,	\
+	[VEOF] = 'D'-0x40,	\
+	[VSTART] = 'Q'-0x40,	\
+	[VSTOP] = 'S'-0x40,	\
+	[VSUSP] = 'Z'-0x40,	\
+	[VREPRINT] = 'R'-0x40,	\
+	[VDISCARD] = 'O'-0x40,	\
+	[VWERASE] = 'W'-0x40,	\
+	[VLNEXT] = 'V'-0x40,	\
+	INIT_C_CC_VDSUSP_EXTRA	\
+	[VMIN] = 1 }
+int user_termio_to_kernel_termios(struct ktermios *, struct termio __user *);
+int kernel_termios_to_user_termio(struct termio __user *, struct ktermios *);
+#ifdef TCGETS2
+int user_termios_to_kernel_termios(struct ktermios *, struct termios2 __user *);
+int kernel_termios_to_user_termios(struct termios2 __user *, struct ktermios *);
+int user_termios_to_kernel_termios_1(struct ktermios *, struct termios __user *);
+int kernel_termios_to_user_termios_1(struct termios __user *, struct ktermios *);
+#else /* TCGETS2 */
+int user_termios_to_kernel_termios(struct ktermios *, struct termios __user *);
+int kernel_termios_to_user_termios(struct termios __user *, struct ktermios *);
+#endif /* TCGETS2 */
+
+
+tty的ioctl响应：
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\tty_io.c
+file_operations定义：
+static const struct file_operations tty_fops = {
+	.llseek		= no_llseek,
+	.read_iter	= tty_read,
+	.write_iter	= tty_write,
+	.splice_read	= generic_file_splice_read,
+	.splice_write	= iter_file_splice_write,
+	.poll		= tty_poll,
+	.unlocked_ioctl	= tty_ioctl,
+	.compat_ioctl	= tty_compat_ioctl,
+	.open		= tty_open,
+	.release	= tty_release,
+	.fasync		= tty_fasync,
+	.show_fdinfo	= tty_show_fdinfo,
+};
+
+unlocked_ioctl、compat_ioctl区别：
+1、compat_ioctl：支持64bit的driver必须要实现ioctl，当有32bit的userspace application call 64bit kernel的IOCTL的时候，这个callback会被调用到。如果没有实现compat_ioctl，那么32位的用户程序在64位的kernel上执行ioctl时会返回错误：Not a typewriter 
+2、如果是64位的用户程序运行在64位的kernel上，调用的是unlocked_ioctl，如果是32位的APP运行在32位的kernel上，调用的也是unlocked_ioctl。
+long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+最后调用到uart_ops的ioctl：
+	if (tty->ops->ioctl) {
+		retval = tty->ops->ioctl(tty, cmd, arg);
+		if (retval != -ENOIOCTLCMD)
+			return retval;
+	}
+uart_ioctl(struct tty_struct *tty, unsigned int cmd, unsigned long arg)
+最后调用到uport的ops，对应的是amba_pl011_pops的ioctl：
+		if (uport->ops->ioctl)
+			ret = uport->ops->ioctl(uport, cmd, arg);
+
+
+vfs_ioctl调用到f_op->unlocked_ioctl
+D:\source_code\linux-6.4.8\linux-6.4.8\fs\ioctl.c
+/**
+ * vfs_ioctl - call filesystem specific ioctl methods
+ * @filp:	open file to invoke ioctl method on
+ * @cmd:	ioctl command to execute
+ * @arg:	command-specific argument for ioctl
+ *
+ * Invokes filesystem specific ->unlocked_ioctl, if one exists; otherwise
+ * returns -ENOTTY.
+ *
+ * Returns 0 on success, -errno on error.
+ */
+long vfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	int error = -ENOTTY;
+
+	if (!filp->f_op->unlocked_ioctl)
+		goto out;
+
+	error = filp->f_op->unlocked_ioctl(filp, cmd, arg);
+	if (error == -ENOIOCTLCMD)
+		error = -ENOTTY;
+ out:
+	return error;
+}
+EXPORT_SYMBOL(vfs_ioctl);
+
+ioctl系统调用定义：
+D:\source_code\linux-6.4.8\linux-6.4.8\fs\ioctl.c
+SYSCALL_DEFINE3(ioctl, unsigned int, fd, unsigned int, cmd, unsigned long, arg)
+{
+	struct fd f = fdget(fd);
+	int error;
+
+	if (!f.file)
+		return -EBADF;
+
+	error = security_file_ioctl(f.file, cmd, arg);
+	if (error)
+		goto out;
+
+	error = do_vfs_ioctl(f.file, fd, cmd, arg);
+	if (error == -ENOIOCTLCMD)
+		error = vfs_ioctl(f.file, cmd, arg);
+
+out:
+	fdput(f);
+	return error;
+}
+
+
+kernel中ioctl cmd的定义：
+D:\source_code\linux-6.4.8\linux-6.4.8\include\uapi\asm-generic\ioctls.h
+/* 0x54 is just a magic number to make these relatively unique ('T') */
+
+#define TCGETS		0x5401
+#define TCSETS		0x5402
+#define TCSETSW		0x5403
+#define TCSETSF		0x5404
+#define TCGETA		0x5405
+#define TCSETA		0x5406
+#define TCSETAW		0x5407
+#define TCSETAF		0x5408
