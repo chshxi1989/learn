@@ -3,3 +3,6 @@ by the C library.  To ensure that the data is physically stored
 on disk the kernel buffers must be flushed too, for example, with
 sync(2) or fsync(2).
 
+
+如果一个文件打开和读写都是底层的api:open/write，那么就不涉及刷新应用层的buf了，只需要调用fsync写到硬件device。
+如果是通过fopen/fwrite等读写文件，则需要调用fflush刷新应用层的buf，之后再调用fsync写到硬件device中。
