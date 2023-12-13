@@ -1,0 +1,51 @@
+
+/sys/class/gpio/gpio38/edge配置中断触发为上升沿和下降沿
+
+epoll监测/sys/class/gpio/gpio38/value里面值的变化，监测的事件类型是EPOLLPRI
+
+EPOLLPRI： 表示对应的文件描述符有紧急的数据可读（这里应该表示有带外数据到来）
+
+int monitor_gpio_status() {
+        // 设置gpio中断触发方式
+        int fd_int = open("/sys/class/gpio/gpio38/edge", O_RDWR); // 4*8+6
+        char data[10] = "both";
+        int ret = write(fd_int, data, strlen(data));
+        if (ret < 0) {
+                zlog_error(c1, "write gpio trigger fail");
+                return -1;
+        }
+        close(fd_int);
+        sleep(3);
+        int fd = open("/sys/class/gpio/gpio38/value", O_RDONLY);
+    struct epoll_event evd;
+    evd.data.fd = fd;  //fd 即为open /sys/class/gpio/gpioN/value返回的句柄
+    evd.events = EPOLLPRI;
+    int epollfd = epoll_create1(0);
+    ret = epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &evd);
+        if (ret == -1) {
+                zlog_error(c1, "gpio epoll_ctl error");
+                return -1;
+        }
+    char value_str[3] = {0};
+        ret = read(fd, value_str, 3);
+    if(ret == -1) {
+        zlog_error(c1, "read fd_gpio error");
+        close(fd);
+        return -2;
+    }
+        zlog_info(c1, "monitor_gpio_status, init value_str:%s", value_str);
+        int n = 0, i = 0;
+        struct epoll_event events[2] = {0};
+    while (true) {
+        n = epoll_wait(epollfd, events, 2, -1);
+        for (i = 0; i < n; i++) {
+            if ((events[i].data.fd == fd) && (events[i].events & EPOLLPRI)) {
+                memset(value_str, 0, sizeof(value_str));
+                read(events[i].data.fd, value_str, 3);
+                lseek(events[i].data.fd, 0, SEEK_SET);
+                zlog_info(c1, "gpio value_str:%s", value_str);
+            }
+        }
+    }
+        return 0;
+}
