@@ -1,0 +1,195 @@
+显示tty的统计信息
+~ # cat /proc/tty/driver/ttyAMA
+serinfo:1.0 driver revision:
+0: uart:PL011 rev2 mmio:0x12100000 irq:13 tx:33841 rx:0 RTS|DTR|DSR|CD|RI
+2: uart:PL011 rev2 mmio:0x12102000 irq:14 tx:0 rx:1 brk:1 RTS|DTR|DSR|CD|RI
+3: uart:PL011 rev2 mmio:0x12103000 irq:15 tx:0 rx:1 brk:1 RTS|DTR|DSR|CD|RI
+4: uart:PL011 rev2 mmio:0x12104000 irq:16 tx:0 rx:1 brk:1 RTS|DTR|DSR|CD|RI
+5: uart:PL011 rev2 mmio:0x18060000 irq:17 tx:48841 rx:17342153 RTS|DTR|DSR|CD|RI
+6: uart:PL011 rev2 mmio:0x18061000 irq:18 tx:0 rx:0 RTS|DTR|DSR|CD|RI
+7: uart:PL011 rev2 mmio:0x18062000 irq:19 tx:0 rx:85 brk:5 RTS|DTR|DSR|CD|RI
+8: uart:PL011 rev2 mmio:0x18063000 irq:20 tx:0 rx:1 brk:1 RTS|DTR|DSR|CD|RI
+9: uart:PL011 rev2 mmio:0x18064000 irq:21 tx:0 rx:0 RTS|DTR|DSR|CD|RI
+10: uart:PL011 rev2 mmio:0x18065000 irq:18 tx:0 rx:0 RTS|DTR|DSR|CD|RI
+11: uart:PL011 rev2 mmio:0x18066000 irq:19 tx:0 rx:1 brk:1 RTS|DTR|DSR|CD|RI
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\fs\proc\proc_tty.c
+proc_tty_init初始化创建/proc/tty目录：
+/*
+ * Called by proc_root_init() to initialize the /proc/tty subtree
+ */
+void __init proc_tty_init(void)
+{
+        if (!proc_mkdir("tty", NULL))
+                return;
+        proc_mkdir("tty/ldisc", NULL);  /* Preserved: it's userspace visible */
+        /*
+         * /proc/tty/driver/serial reveals the exact character counts for
+         * serial links which is just too easy to abuse for inferring
+         * password lengths and inter-keystroke timings during password
+         * entry.
+         */
+        proc_tty_driver = proc_mkdir_mode("tty/driver", S_IRUSR|S_IXUSR, NULL);
+        proc_create_seq("tty/ldiscs", 0, NULL, &tty_ldiscs_seq_ops);
+        proc_create_seq("tty/drivers", 0, NULL, &tty_drivers_op);
+}
+
+
+提供proc_tty_register_driver接口给外部注册使用
+/*
+ * This function is called by tty_register_driver() to handle
+ * registering the driver's /proc handler into /proc/tty/driver/<foo>
+ */
+void proc_tty_register_driver(struct tty_driver *driver)
+{
+        struct proc_dir_entry *ent;
+
+        if (!driver->driver_name || driver->proc_entry ||
+            !driver->ops->proc_show)
+                return;
+
+        ent = proc_create_single_data(driver->driver_name, 0, proc_tty_driver,
+                               driver->ops->proc_show, driver);
+        driver->proc_entry = ent;
+}
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\tty_io.c
+int tty_register_driver(struct tty_driver *driver)
+==》proc_tty_register_driver(driver)
+
+driver->driver_name是dts中设置的ttyAMA
+
+driver->ops->proc_show 即为 uart_proc_show
+
+static const struct tty_operations uart_ops = {
+        .install        = uart_install,
+        .open           = uart_open,
+        .close          = uart_close,
+        .write          = uart_write,
+        .put_char       = uart_put_char,
+        .flush_chars    = uart_flush_chars,
+        .write_room     = uart_write_room,
+        .chars_in_buffer= uart_chars_in_buffer,
+        .flush_buffer   = uart_flush_buffer,
+        .ioctl          = uart_ioctl,
+        .throttle       = uart_throttle,
+        .unthrottle     = uart_unthrottle,
+        .send_xchar     = uart_send_xchar,
+        .set_termios    = uart_set_termios,
+        .set_ldisc      = uart_set_ldisc,
+        .stop           = uart_stop,
+        .start          = uart_start,
+        .hangup         = uart_hangup,
+        .break_ctl      = uart_break_ctl,
+        .wait_until_sent= uart_wait_until_sent,
+#ifdef CONFIG_PROC_FS
+        .proc_show      = uart_proc_show,
+#endif
+        .tiocmget       = uart_tiocmget,
+        .tiocmset       = uart_tiocmset,
+        .set_serial     = uart_set_info_user,
+        .get_serial     = uart_get_info_user,
+        .get_icount     = uart_get_icount,
+#ifdef CONFIG_CONSOLE_POLL
+        .poll_init      = uart_poll_init,
+        .poll_get_char  = uart_poll_get_char,
+        .poll_put_char  = uart_poll_put_char,
+#endif
+};
+
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\drivers\tty\serial\serial_core.c
+static int uart_proc_show(struct seq_file *m, void *v)
+{
+        struct tty_driver *ttydrv = m->private;
+        struct uart_driver *drv = ttydrv->driver_state;
+        int i;
+
+        seq_printf(m, "serinfo:1.0 driver%s%s revision:%s\n", "", "", "");
+        for (i = 0; i < drv->nr; i++)
+                uart_line_info(m, drv, i);
+        return 0;
+}
+
+static void uart_line_info(struct seq_file *m, struct uart_driver *drv, int i)
+{
+        struct uart_state *state = drv->state + i;
+        struct tty_port *port = &state->port;
+        enum uart_pm_state pm_state;
+        struct uart_port *uport;
+        char stat_buf[32];
+        unsigned int status;
+        int mmio;
+
+        mutex_lock(&port->mutex);
+        uport = uart_port_check(state);
+        if (!uport)
+                goto out;
+
+        mmio = uport->iotype >= UPIO_MEM;
+        seq_printf(m, "%d: uart:%s %s%08llX irq:%d",
+                        uport->line, uart_type(uport),
+                        mmio ? "mmio:0x" : "port:",
+                        mmio ? (unsigned long long)uport->mapbase
+                             : (unsigned long long)uport->iobase,
+                        uport->irq);
+
+        if (uport->type == PORT_UNKNOWN) {
+                seq_putc(m, '\n');
+                goto out;
+        }
+
+        if (capable(CAP_SYS_ADMIN)) {
+                pm_state = state->pm_state;
+                if (pm_state != UART_PM_STATE_ON)
+                        uart_change_pm(state, UART_PM_STATE_ON);
+                spin_lock_irq(&uport->lock);
+                status = uport->ops->get_mctrl(uport);
+                spin_unlock_irq(&uport->lock);
+                if (pm_state != UART_PM_STATE_ON)
+                        uart_change_pm(state, pm_state);
+
+                seq_printf(m, " tx:%d rx:%d",
+                                uport->icount.tx, uport->icount.rx);
+                if (uport->icount.frame)
+                        seq_printf(m, " fe:%d", uport->icount.frame);
+                if (uport->icount.parity)
+                        seq_printf(m, " pe:%d", uport->icount.parity);
+                if (uport->icount.brk)
+                        seq_printf(m, " brk:%d", uport->icount.brk);
+                if (uport->icount.overrun)
+                        seq_printf(m, " oe:%d", uport->icount.overrun);
+                if (uport->icount.buf_overrun)
+                        seq_printf(m, " bo:%d", uport->icount.buf_overrun);
+
+#define INFOBIT(bit, str) \
+        if (uport->mctrl & (bit)) \
+                strncat(stat_buf, (str), sizeof(stat_buf) - \
+                        strlen(stat_buf) - 2)
+#define STATBIT(bit, str) \
+        if (status & (bit)) \
+                strncat(stat_buf, (str), sizeof(stat_buf) - \
+                       strlen(stat_buf) - 2)
+
+                stat_buf[0] = '\0';
+                stat_buf[1] = '\0';
+                INFOBIT(TIOCM_RTS, "|RTS");
+                STATBIT(TIOCM_CTS, "|CTS");
+                INFOBIT(TIOCM_DTR, "|DTR");
+                STATBIT(TIOCM_DSR, "|DSR");
+                STATBIT(TIOCM_CAR, "|CD");
+                STATBIT(TIOCM_RNG, "|RI");
+                if (stat_buf[0])
+                        stat_buf[0] = ' ';
+
+                seq_puts(m, stat_buf);
+        }
+        seq_putc(m, '\n');
+#undef STATBIT
+#undef INFOBIT
+out:
+        mutex_unlock(&port->mutex);
+}
