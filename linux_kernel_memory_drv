@@ -1,0 +1,329 @@
+shm_drv.c
+
+chengshangxian@ubuntu:~/test/linux_kernel_drv$ cat shm_drv.c
+#include <asm/io.h>
+#include <asm/uaccess.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/fs.h>
+#include <linux/device.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+#include <linux/gpio.h>
+#include <linux/input.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
+#include <linux/poll.h>
+#include <linux/mm.h>
+
+#include "shm_drv.h"
+
+#define BUFF_SIZE (32 * PAGE_SIZE)
+
+static struct gdu_shm_info *shm_dev;
+static struct kobject *gdu_shm_kobj;
+
+static ssize_t gdu_shm_show(struct kobject *kobj,
+                                struct kobj_attribute *attr,
+                                char *buf)
+{
+        uint32_t loop, val;
+
+        printk("Begin to dump gdu share mem:\n");
+
+#if 0
+        for (loop = 0; loop < 256; loop += 8) {
+                val = *((unsigned long *)shm_dev->virt_mem + loop);
+
+                pr_info("shm_gdu: [0x%lx] = 0x%016x\n",
+                        (unsigned long)shm_dev->virt_mem + loop, val);
+
+        }
+#else
+
+        for (loop = 0; loop < 64; loop += 1) {
+                val = *((char *)shm_dev->virt_mem + loop);
+
+                pr_info("shm_gdu: [0x%lx] = 0x%02x\n",
+                        (unsigned long)shm_dev->virt_mem + loop, val);
+        }
+#endif
+        printk("End to dump gdu share mem.\n");
+
+        //sprintf(buf, "0x%08x\n", val);
+
+        return 0;
+
+}
+
+static struct kobj_attribute gdu_shm_attribute =
+        __ATTR(gdu_shm, 0644, gdu_shm_show, NULL);
+
+static struct attribute *attrs[] = {
+        &gdu_shm_attribute.attr,
+        NULL,
+};
+
+static struct attribute_group attr_group = {
+        .attrs = attrs,
+};
+
+
+static void shm_dev_release(struct device *dev)
+{
+        return;
+}
+
+static struct platform_device shm_pdev = {
+        .name = "s450_gdu_shm",
+        .id = -1,
+        .dev = {
+                .release = shm_dev_release,
+        }
+};
+
+static int shm_drv_open(struct inode *inode, struct file *filp)
+{
+        struct mm_struct *mm = current->mm;
+
+        printk("=============%s=============\n", __FUNCTION__);
+
+        printk("client: %s (%d)\n", current->comm, current->pid);
+        printk("code  section: [0x%lx   0x%lx]\n", mm->start_code, mm->end_code);
+        printk("data  section: [0x%lx   0x%lx]\n", mm->start_data, mm->end_data);
+        printk("brk   section: s: 0x%lx, c: 0x%lx\n", mm->start_brk, mm->brk);
+        printk("mmap  section: s: 0x%lx\n", mm->mmap_base);
+        printk("stack section: s: 0x%lx\n", mm->start_stack);
+        printk("arg   section: [0x%lx   0x%lx]\n", mm->arg_start, mm->arg_end);
+        printk("env   section: [0x%lx   0x%lx]\n", mm->env_start, mm->env_end);
+
+        return 0;
+
+}
+
+static int shm_drv_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+        unsigned long offset;
+        unsigned long pfn_start;
+        unsigned long phy_start;
+        unsigned long vir_start;
+        unsigned long size;
+        int ret;
+
+        printk("=============%s=============\n", __FUNCTION__);
+
+        offset = vma->vm_pgoff << PAGE_SHIFT;
+        pfn_start = (virt_to_phys(shm_dev->virt_mem) >> PAGE_SHIFT)
+                        + vma->vm_pgoff;
+        phy_start = pfn_start << PAGE_SHIFT;
+        vir_start = (unsigned long)shm_dev->virt_mem + offset;
+        size = vma->vm_end - vma->vm_start;
+
+        printk("phys addr: 0x%lx, offset: 0x%lx, size: 0x%lx\n",
+                phy_start, offset, size);
+
+        ret = remap_pfn_range(vma, vma->vm_start, pfn_start,
+                                size, vma->vm_page_prot);
+        if (ret < 0) {
+                printk(KERN_ERR "%s: remap_pfn_range failed at [0x%lx  0x%lx]\n",
+                        __func__, vma->vm_start, vma->vm_end);
+                return -EAGAIN;
+        } else
+                printk("%s: map 0x%lx to 0x%lx, size: 0x%lx\n",
+                        __func__, vir_start, vma->vm_start, size);
+
+        return 0;
+}
+
+static int shm_drv_close(struct inode *inode, struct file *filp)
+{
+        printk("=============%s=============\n", __FUNCTION__);
+
+        return 0;
+}
+
+static const struct file_operations shm_fops = {
+        .open = shm_drv_open,
+        .mmap = shm_drv_mmap,
+        .release = shm_drv_close,
+};
+
+static int shm_drv_probe(struct platform_device *pdev)
+{
+        int ret;
+
+        printk("=============%s=============\n", __FUNCTION__);
+
+        shm_dev = kzalloc(sizeof(struct gdu_shm_info), GFP_KERNEL);
+        if (shm_dev == NULL) {
+                printk(KERN_ERR "kzalloc shm dev error.\n");
+                return -ENOMEM;
+        }
+
+        // /proc/shm_drv
+        shm_dev->dev_major = register_chrdev(0, "shm_gdu_drv", &shm_fops);
+        if (shm_dev->dev_major < 0) {
+                printk(KERN_ERR "register_chrdev error.\n");
+                ret = -EINVAL;
+                goto err_free;
+        }
+
+        // /sys/class/shm_cls
+        shm_dev->cls = class_create(THIS_MODULE, "shm_gdu_cls");
+        if (IS_ERR(shm_dev->cls)) {
+                printk(KERN_ERR "class_create error.\n");
+                ret = PTR_ERR(shm_dev->cls);
+                goto err_unregister;
+        }
+
+        // /dev/shm
+        shm_dev->dev = device_create(shm_dev->cls, NULL,
+                                        MKDEV(shm_dev->dev_major, 0),
+                                        NULL, "shm-gdu%d", 0);
+        if (IS_ERR(shm_dev->dev)) {
+                printk(KERN_ERR "device_create error.\n");
+                ret = PTR_ERR(shm_dev->dev);
+                goto err_class_destroy;
+        }
+
+        shm_dev->virt_mem = kzalloc(BUFF_SIZE, GFP_KERNEL);
+        printk("shm gdu mem = %pK\n", shm_dev->virt_mem);
+        if (shm_dev->virt_mem == NULL) {
+                printk(KERN_ERR "kzalloc shm dev vir mem error.\n");
+                ret = -ENOMEM;
+                goto err_device_destory;
+        }
+
+        gdu_shm_kobj = kobject_create_and_add("dump_gdu_shm", NULL);
+        if (gdu_shm_kobj == NULL) {
+                printk(KERN_ERR "kobject create error.\n");
+                ret = -ENOMEM;
+                goto err_shmgdu_free;
+        }
+
+        ret = sysfs_create_group(gdu_shm_kobj, &attr_group);
+        if (ret < 0) {
+                printk(KERN_ERR "sys create error.\n");
+                goto err_kobject_destory;
+        }
+
+        return 0;
+
+err_kobject_destory:
+        kobject_put(gdu_shm_kobj);
+err_shmgdu_free:
+        kfree(shm_dev->virt_mem);
+err_device_destory:
+        device_destroy(shm_dev->cls, MKDEV(shm_dev->dev_major, 0));
+err_class_destroy:
+        class_destroy(shm_dev->cls);
+err_unregister:
+        unregister_chrdev(shm_dev->dev_major, "shm_gdu_drv");
+err_free:
+        kfree(shm_dev);
+
+        return ret;
+}
+
+static int shm_drv_remove(struct platform_device *pdev)
+{
+        printk("=============%s=============\n", __FUNCTION__);
+
+        sysfs_remove_group(gdu_shm_kobj, &attr_group);
+        kobject_put(gdu_shm_kobj);
+        kfree(shm_dev->virt_mem);
+        device_destroy(shm_dev->cls, MKDEV(shm_dev->dev_major, 0));
+        class_destroy(shm_dev->cls);
+        unregister_chrdev(shm_dev->dev_major, "shm_gdu_drv");
+        kfree(shm_dev);
+
+        return 0;
+}
+
+static const struct platform_device_id shm_id_table[] = {
+                {"s450_gdu_shm", 0x1111},
+                {"s400_gdu_shm", 0x2222},
+};
+
+static struct platform_driver shm_pdrv = {
+        .probe = shm_drv_probe,
+        .remove = shm_drv_remove,
+        .driver = {
+                .name = "gdu_shm_drv",
+        },
+        .id_table = shm_id_table,
+};
+
+static int __init share_mem_drv_init(void)
+{
+        int ret;
+
+        printk("=============%s=============\n", __FUNCTION__);
+        ret = platform_device_register(&shm_pdev);
+        if (ret < 0) {
+                printk("Share mem platform_device_register error.\n");
+                return ret;
+        }
+
+        ret = platform_driver_register(&shm_pdrv);
+        if (ret < 0) {
+                printk("Share mem platform_driver_register error.\n");
+                goto err_driver_register;
+        }
+
+        return 0;
+
+err_driver_register:
+        platform_device_unregister(&shm_pdev);
+
+        return ret;
+}
+
+static void __exit share_mem_drv_exit(void)
+{
+        printk("=============%s=============\n", __FUNCTION__);
+        platform_driver_unregister(&shm_pdrv);
+        platform_device_unregister(&shm_pdev);
+}
+
+module_init(share_mem_drv_init);
+module_exit(share_mem_drv_exit);
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("yuhongxing@gdu.com");
+
+
+
+
+
+shm_drv.h
+
+chengshangxian@ubuntu:~/test/linux_kernel_drv$ cat shm_drv.h
+#ifndef __GDU_SHM_INFO_H__
+#define __GDU_SHM_INFO_H__
+
+struct mem_data {
+        char buf[128];
+};
+
+struct gdu_shm_platdata {
+        char *name;
+        int shift;
+};
+
+struct gdu_shm_info {
+        int dev_major;
+        int irq_no;
+        struct class *cls;
+        struct device *dev;
+        void *reg_base;
+        struct shm_platdata *pdata;
+        wait_queue_head_t wq_head;
+        int have_data;
+        void *virt_mem;
+        struct tasklet_struct tasklet;
+};
+
+#endif
+
+
