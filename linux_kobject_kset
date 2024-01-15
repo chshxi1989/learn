@@ -1,0 +1,450 @@
+【Linux kernel】Linux设备模型(2)_Kobject_linux/kobject.h_雪饼android之路的博客-CSDN博客
+
+1. 前言
+Kobject是Linux设备模型的基础，也是设备模型中最难理解的一部分（可参考Documentation/kobject.txt的表述）。因此有必要先把它分析清楚。
+kset和kobject/kobj_type的关系：
+
+
+2. 基本概念
+由“Linux设备模型(1)_基本概念”可知，Linux设备模型的核心是使用Bus、Class、Device、Driver四个核心数据结构，将大量的、不同功能的硬件设备（以及驱动该硬件设备的方法），以树状结构的形式，进行归纳、抽象，从而方便Kernel的统一管理。
+而硬件设备的数量、种类是非常多的，这就决定了Kernel中将会有大量的有关设备模型的数据结构。这些数据结构一定有一些共同的功能，需要抽象出来统一实现，否则就会不可避免的产生冗余代码。这就是Kobject诞生的背景。
+目前为止，Kobject主要提供如下功能：
+1.通过parent指针，可以将所有Kobject以层次结构的形式组合起来。
+2.使用一个引用计数（reference count），来记录Kobject被引用的次数，并在引用次数变为0时把它释放（这是Kobject诞生时的唯一功能）。
+3.和sysfs虚拟文件系统配合，将每一个Kobject及其特性，以文件的形式，开放到用户空间（有关sysfs，会在其它文章中专门描述，本文不会涉及太多内容）。
+注1：在Linux中，Kobject几乎不会单独存在。它的主要功能，就是内嵌在一个大型的数据结构中，为这个数据结构提供一些底层的功能实现。
+注2：Linux driver开发者，很少会直接使用Kobject以及它提供的接口，而是使用构建在Kobject之上的设备模型接口。
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\kobject.h
+
+kref用来计数。
+
+Kobj_type定义：
+struct kobj_type {
+    void (*release)(struct kobject *kobj);
+    const struct sysfs_ops *sysfs_ops;
+    const struct attribute_group **default_groups;
+    const struct kobj_ns_type_operations *(*child_ns_type)(const struct kobject *kobj);
+    const void *(*namespace)(const struct kobject *kobj);
+    void (*get_ownership)(const struct kobject *kobj, kuid_t *uid, kgid_t *gid);
+};
+
+sysfs_ops定义：
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\sysfs.h
+struct sysfs_ops {
+    ssize_t (*show)(struct kobject *, struct attribute *, char *);
+    ssize_t (*store)(struct kobject *, struct attribute *, const char *, size_t);
+};
+
+kset定义：
+/**
+ * struct kset - a set of kobjects of a specific type, belonging to a specific subsystem.
+ *
+ * A kset defines a group of kobjects.  They can be individually
+ * different "types" but overall these kobjects all want to be grouped
+ * together and operated on in the same manner.  ksets are used to
+ * define the attribute callbacks and other common events that happen to
+ * a kobject.
+ *
+ * @list: the list of all kobjects for this kset
+ * @list_lock: a lock for iterating over the kobjects
+ * @kobj: the embedded kobject for this kset (recursion, isn't it fun...)
+ * @uevent_ops: the set of uevent operations for this kset.  These are
+ * called whenever a kobject has something happen to it so that the kset
+ * can add new environment variables, or filter out the uevents if so
+ * desired.
+ */
+struct kset {
+    struct list_head list;
+    spinlock_t list_lock;
+    struct kobject kobj;
+    const struct kset_uevent_ops *uevent_ops;
+} __randomize_layout;
+
+kernfs_node定义：
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\kernfs.h
+/*
+ * kernfs_node - the building block of kernfs hierarchy.  Each and every
+ * kernfs node is represented by single kernfs_node.  Most fields are
+ * private to kernfs and shouldn't be accessed directly by kernfs users.
+ *
+ * As long as count reference is held, the kernfs_node itself is
+ * accessible.  Dereferencing elem or any other outer entity requires
+ * active reference.
+ */
+struct kernfs_node {
+    atomic_t        count;
+    atomic_t        active;
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+    struct lockdep_map  dep_map;
+#endif
+    /*
+     * Use kernfs_get_parent() and kernfs_name/path() instead of
+     * accessing the following two fields directly.  If the node is
+     * never moved to a different parent, it is safe to access the
+     * parent directly.
+     */
+    struct kernfs_node  *parent;
+    const char      *name;
+
+    struct rb_node      rb;
+
+    const void      *ns;    /* namespace tag */
+    unsigned int        hash;   /* ns + name hash */
+    union {
+        struct kernfs_elem_dir      dir;
+        struct kernfs_elem_symlink  symlink;
+        struct kernfs_elem_attr     attr;
+    };
+
+    void            *priv;
+
+    /*
+     * 64bit unique ID.  On 64bit ino setups, id is the ino.  On 32bit,
+     * the low 32bits are ino and upper generation.
+     */
+    u64         id;
+
+    unsigned short      flags;
+    umode_t         mode;
+    struct kernfs_iattrs    *iattr;
+};
+
+
+kobj_attribute定义：
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\kobject.h
+struct kobj_attribute {
+    struct attribute attr;
+    ssize_t (*show)(struct kobject *kobj, struct kobj_attribute *attr,
+            char *buf);
+    ssize_t (*store)(struct kobject *kobj, struct kobj_attribute *attr,
+             const char *buf, size_t count);
+};
+
+static struct kobj_attribute gdu_shm_attribute =
+    __ATTR(gdu_shm, 0644, gdu_shm_show, NULL);
+
+__ATTR宏定义：
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\sysfs.h
+#define __ATTR(_name, _mode, _show, _store) {               \
+    .attr = {.name = __stringify(_name),                \
+         .mode = VERIFY_OCTAL_PERMISSIONS(_mode) },     \
+    .show   = _show,                        \
+    .store  = _store,                       \
+}
+
+device_attribute
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\device.h
+struct device_attribute {
+    struct attribute    attr;
+    ssize_t (*show)(struct device *dev, struct device_attribute *attr,
+            char *buf);
+    ssize_t (*store)(struct device *dev, struct device_attribute *attr,
+             const char *buf, size_t count);
+};
+
+
+
+
+代码解析
+3.1 在Linux Kernel source code中的位置
+在Kernel源代码中，Kobject由如下两个文件实现：
+include/linux/kobject.h
+lib/kobject.c
+其中kobject.h为Kobject的头文件，包含所有的数据结构定义和接口声明。kobject.c为核心功能的实现。
+3.2 主要的数据结构
+在描述数据结构之前，有必要说明一下Kobject, Kset和Ktype这三个概念。
+Kobject是基本数据类型，每个Kobject都会在"/sys/“文件系统中以目录的形式出现。
+Ktype代表Kobject（严格地讲，是包含了Kobject的数据结构）的属性操作集合（由于通用性，多个Kobject可能共用同一个属性操作集，因此把Ktype独立出来了）。
+注3：在设备模型中，ktype的命名和解释，都非常抽象，理解起来非常困难，后面会详细说明。
+Kset是一个特殊的Kobject（因此它也会在"/sys/“文件系统中以目录的形式出现），它用来集合相似的Kobject（这些Kobject可以是相同属性的，也可以不同属性的）。
+
+Show的调用栈：
+cat /sys/dump_gdu_shm/gdu_shm
+
+[101315.570767]  dump_stack_lvl+0x4a/0x63
+[101315.573569]  dump_stack+0x10/0x16
+[101315.573575]  gdu_shm_show+0x11/0x59 [shm_drv]
+[101315.573578]  kobj_attr_show+0xf/0x30
+[101315.575493]  sysfs_kf_seq_show+0x9e/0x100
+[101315.575856]  kernfs_seq_show+0x24/0x30
+[101315.575858]  seq_read_iter+0x121/0x450
+[101315.578383]  kernfs_fop_read_iter+0x154/0x1b0
+[101315.578386]  new_sync_read+0x10d/0x1a0
+[101315.578746]  vfs_read+0x102/0x1a0
+[101315.578749]  ksys_read+0x67/0xf0
+[101315.578753]  __x64_sys_read+0x1a/0x20
+[101315.578756]  do_syscall_64+0x59/0xc0
+[101315.579095]  ? handle_mm_fault+0xd8/0x2c0
+[101315.579143]  ? exit_to_user_mode_prepare+0x3d/0x1c0
+[101315.580237]  ? do_user_addr_fault+0x1e0/0x660
+[101315.580599]  ? irqentry_exit_to_user_mode+0x17/0x20
+[101315.580603]  ? irqentry_exit+0x1d/0x30
+[101315.580606]  ? exc_page_fault+0x89/0x170
+[101315.580609]  entry_SYSCALL_64_after_hwframe+0x62/0xcc
+
+
+
+PAGE_SIZE:4096 = 4KB
+D:\source_code\linux-6.4.8\linux-6.4.8\arch\arm\include\asm\page.h
+#define PAGE_SHIFT      12
+#define PAGE_SIZE       (_AC(1,UL) << PAGE_SHIFT)
+#define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
+
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\lib\kobject.c
+/* default kobject attribute operations */
+static ssize_t kobj_attr_show(struct kobject *kobj, struct attribute *attr,
+                  char *buf)
+{
+    struct kobj_attribute *kattr;
+    ssize_t ret = -EIO;
+
+    kattr = container_of(attr, struct kobj_attribute, attr);
+    if (kattr->show)
+        ret = kattr->show(kobj, kattr, buf);
+    return ret;
+}
+
+static ssize_t kobj_attr_store(struct kobject *kobj, struct attribute *attr,
+                   const char *buf, size_t count)
+{
+    struct kobj_attribute *kattr;
+    ssize_t ret = -EIO;
+
+    kattr = container_of(attr, struct kobj_attribute, attr);
+    if (kattr->store)
+        ret = kattr->store(kobj, kattr, buf, count);
+    return ret;
+}
+
+const struct sysfs_ops kobj_sysfs_ops = {
+    .show   = kobj_attr_show,
+    .store  = kobj_attr_store,
+};
+EXPORT_SYMBOL_GPL(kobj_sysfs_ops);
+
+默认的kobj的show和store。
+例如自己写的驱动，
+static struct kobj_attribute gdu_shm_attribute =
+    __ATTR(gdu_shm, 0644, gdu_shm_show, NULL);
+
+static struct attribute *attrs[] = {
+    &gdu_shm_attribute.attr,
+    NULL,
+};
+
+static struct attribute_group attr_group = {
+    .attrs = attrs,
+};
+
+    // /sys/dump_gdu_shm/gdu_shm
+    // cat读取文件一次会调用到gdu_shm_show函数一次，dmesg中查看内核的打印
+    gdu_shm_kobj = kobject_create_and_add("dump_gdu_shm", NULL);
+    if (gdu_shm_kobj == NULL) {
+        printk(KERN_ERR "kobject create error.\n");
+        ret = -ENOMEM;
+        goto err_shmgdu_free;
+    }
+
+    ret = sysfs_create_group(gdu_shm_kobj, &attr_group);
+    if (ret < 0) {
+        printk(KERN_ERR "sys create error.\n");
+        goto err_kobject_destory;
+    }
+
+会根据attribute 结构体，反向去匹配对应的kobj_attribute 结构体，找到kobj_attribute 里面定义的show和store函数。
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\include\linux\container_of.h
+/**
+ * container_of - cast a member of a structure out to the containing structure
+ * @ptr:    the pointer to the member.
+ * @type:   the type of the container struct this is embedded in.
+ * @member: the name of the member within the struct.
+ *
+ * WARNING: any const qualifier of @ptr is lost.
+ */
+#define container_of(ptr, type, member) ({              \
+    void *__mptr = (void *)(ptr);                   \
+    static_assert(__same_type(*(ptr), ((type *)0)->member) ||   \
+              __same_type(*(ptr), void),            \
+              "pointer type mismatch in container_of()");   \
+    ((type *)(__mptr - offsetof(type, member))); })
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\lib\kobject.c
+static const struct kobj_type dynamic_kobj_ktype = {
+    .release    = dynamic_kobj_release,
+    .sysfs_ops  = &kobj_sysfs_ops,
+};
+
+/**
+ * kobject_create() - Create a struct kobject dynamically.
+ *
+ * This function creates a kobject structure dynamically and sets it up
+ * to be a "dynamic" kobject with a default release function set up.
+ *
+ * If the kobject was not able to be created, NULL will be returned.
+ * The kobject structure returned from here must be cleaned up with a
+ * call to kobject_put() and not kfree(), as kobject_init() has
+ * already been called on this structure.
+ */
+static struct kobject *kobject_create(void)
+{
+    struct kobject *kobj;
+
+    kobj = kzalloc(sizeof(*kobj), GFP_KERNEL);
+    if (!kobj)
+        return NULL;
+
+    kobject_init(kobj, &dynamic_kobj_ktype);
+    return kobj;
+}
+创建kobject时，默认使用dynamic_kobj_ktype，即kobj_sysfs_ops。
+struct kobject *kobject_create_and_add(const char *name, struct kobject *parent)
+{
+    struct kobject *kobj;
+    int retval;
+
+    kobj = kobject_create();
+    if (!kobj)
+        return NULL;
+
+    retval = kobject_add(kobj, parent, "%s", name);
+    if (retval) {
+        pr_warn("%s: kobject_add error: %d\n", __func__, retval);
+        kobject_put(kobj);
+        kobj = NULL;
+    }
+    return kobj;
+}
+EXPORT_SYMBOL_GPL(kobject_create_and_add);
+
+
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\fs\sysfs\file.c
+/*
+ * Determine ktype->sysfs_ops for the given kernfs_node.  This function
+ * must be called while holding an active reference.
+ */
+static const struct sysfs_ops *sysfs_file_ops(struct kernfs_node *kn)
+{
+    struct kobject *kobj = kn->parent->priv;
+
+    if (kn->flags & KERNFS_LOCKDEP)
+        lockdep_assert_held(kn);
+    return kobj->ktype ? kobj->ktype->sysfs_ops : NULL;
+}
+
+kobj对应的是/sys/dump_gdu_shm对应的kobject。
+sysfs_ops对应的是dynamic_kobj_ktype
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\fs\sysfs\file.c
+设置sysfs_ops
+int sysfs_add_file_mode_ns(struct kernfs_node *parent,
+        const struct attribute *attr, umode_t mode, kuid_t uid,
+        kgid_t gid, const void *ns)
+{
+    struct kobject *kobj = parent->priv;
+    const struct sysfs_ops *sysfs_ops = kobj->ktype->sysfs_ops;
+    struct lock_class_key *key = NULL;
+    const struct kernfs_ops *ops = NULL;
+    struct kernfs_node *kn;
+
+    /* every kobject with an attribute needs a ktype assigned */
+    if (WARN(!sysfs_ops, KERN_ERR
+            "missing sysfs attribute operations for kobject: %s\n",
+            kobject_name(kobj)))
+        return -EINVAL;
+
+    if (mode & SYSFS_PREALLOC) {
+        if (sysfs_ops->show && sysfs_ops->store)
+            ops = &sysfs_prealloc_kfops_rw;
+        else if (sysfs_ops->show)
+            ops = &sysfs_prealloc_kfops_ro;
+        else if (sysfs_ops->store)
+            ops = &sysfs_prealloc_kfops_wo;
+    } else {
+        if (sysfs_ops->show && sysfs_ops->store)
+            ops = &sysfs_file_kfops_rw;
+        else if (sysfs_ops->show)
+            ops = &sysfs_file_kfops_ro;
+        else if (sysfs_ops->store)
+            ops = &sysfs_file_kfops_wo;
+    }
+
+    if (!ops)
+        ops = &sysfs_file_kfops_empty;
+
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+    if (!attr->ignore_lockdep)
+        key = attr->key ?: (struct lock_class_key *)&attr->skey;
+#endif
+
+    kn = __kernfs_create_file(parent, attr->name, mode & 0777, uid, gid,
+                  PAGE_SIZE, ops, (void *)attr, ns, key);
+    if (IS_ERR(kn)) {
+        if (PTR_ERR(kn) == -EEXIST)
+            sysfs_warn_dup(parent, attr->name);
+        return PTR_ERR(kn);
+    }
+    return 0;
+}
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\fs\sysfs\file.c
+kernfs_ops和sysfs_ops的转换：
+static const struct kernfs_ops sysfs_file_kfops_rw = {
+    .seq_show   = sysfs_kf_seq_show,
+    .write      = sysfs_kf_write,
+};
+
+
+D:\source_code\linux-6.4.8\linux-6.4.8\fs\sysfs\file.c
+/*
+ * Reads on sysfs are handled through seq_file, which takes care of hairy
+ * details like buffering and seeking.  The following function pipes
+ * sysfs_ops->show() result through seq_file.
+ */
+static int sysfs_kf_seq_show(struct seq_file *sf, void *v)
+{
+    struct kernfs_open_file *of = sf->private;
+    struct kobject *kobj = of->kn->parent->priv;
+    const struct sysfs_ops *ops = sysfs_file_ops(of->kn);
+    ssize_t count;
+    char *buf;
+
+    if (WARN_ON_ONCE(!ops->show))
+        return -EINVAL;
+
+    /* acquire buffer and ensure that it's >= PAGE_SIZE and clear */
+    count = seq_get_buf(sf, &buf);
+    if (count < PAGE_SIZE) {
+        seq_commit(sf, -1);
+        return 0;
+    }
+    memset(buf, 0, PAGE_SIZE);
+
+    count = ops->show(kobj, of->kn->priv, buf);
+    if (count < 0)
+        return count;
+
+    /*
+     * The code works fine with PAGE_SIZE return but it's likely to
+     * indicate truncated result or overflow in normal use cases.
+     */
+    if (count >= (ssize_t)PAGE_SIZE) {
+        printk("fill_read_buffer: %pS returned bad count\n",
+                ops->show);
+        /* Try to struggle along */
+        count = PAGE_SIZE - 1;
+    }
+    seq_commit(sf, count);
+    return 0;
+}
+传给show的参数of->kn->priv，对应的是sysfs_create_group传进来的attr。可以找到实际执行的show和store函数：gdu_shm_show。
+kobj对应的是/sysfs/dump_gdu_shm/gdu_shm
+
