@@ -3,7 +3,9 @@
 1. 前言
 Kobject是Linux设备模型的基础，也是设备模型中最难理解的一部分（可参考Documentation/kobject.txt的表述）。因此有必要先把它分析清楚。
 kset和kobject/kobj_type的关系：
-
+kobject属于kset，kset有一个list成员，是kobject的双向链表。
+kset也有一个kobject的成员，所以根据kset->kobject->kset，可以找到当前kset的上一层kset。
+可以理解成kobject对应一个文件，kset对应一个目录。
 
 2. 基本概念
 由“Linux设备模型(1)_基本概念”可知，Linux设备模型的核心是使用Bus、Class、Device、Driver四个核心数据结构，将大量的、不同功能的硬件设备（以及驱动该硬件设备的方法），以树状结构的形式，进行归纳、抽象，从而方便Kernel的统一管理。
