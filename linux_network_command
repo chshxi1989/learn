@@ -1,0 +1,55 @@
+查询打开的端口信息：netstat -antulp
+-a:Show both listening and non-listening sockets.  With the --interfaces option, show interfaces that are not up
+-n:用数字显示ip和port，不用名称
+-u:udp
+-t:tcp
+-l:Show only listening sockets.  (These are omitted by default.)
+-p:--program，显示程序信息，Show the PID and name of the program to which each socket belongs.
+
+/home/gdu-tech # netstat -antulp
+Active Internet connections (servers and established)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 0.0.0.0:554             0.0.0.0:*               LISTEN      3956/FPV_Camera
+tcp        0      0 127.0.0.1:5037          0.0.0.0:*               LISTEN      1411/adbd
+tcp        0      0 0.0.0.0:5555            0.0.0.0:*               LISTEN      1411/adbd
+tcp        0      0 0.0.0.0:21              0.0.0.0:*               LISTEN      1410/tcpsvd
+tcp        0      0 127.0.0.1:554           127.0.0.1:41270         ESTABLISHED 3956/FPV_Camera
+tcp        0      0 145.192.1.66:5555       145.192.1.222:56290     ESTABLISHED 1411/adbd
+tcp        0      0 127.0.0.1:41270         127.0.0.1:554           ESTABLISHED 3202/rtsp_proxy
+tcp        0      0 :::23                   :::*                    LISTEN      1412/telnetd
+tcp        0    816 ::ffff:145.192.1.67:23  ::ffff:145.192.1.222:56358 ESTABLISHED 1412/telnetd
+tcp        0      0 ::ffff:145.192.1.64:23  ::ffff:145.192.1.15:5177 ESTABLISHED 1412/telnetd
+udp        0      0 0.0.0.0:50327           0.0.0.0:*                           3193/combine_contro
+udp        0      0 0.0.0.0:54428           0.0.0.0:*                           3203/ESCdataProxy
+udp        0      0 0.0.0.0:39141           0.0.0.0:*                           3200/task_manage
+udp        0      0 0.0.0.0:54559           0.0.0.0:*                           3201/gimbal_adaptor
+udp        0      0 0.0.0.0:50517           0.0.0.0:*                           3199/update_cmp
+udp        0      0 0.0.0.0:38558           0.0.0.0:*                           3192/timeSync_cmp
+udp        0      0 0.0.0.0:8896            0.0.0.0:*                           3194/rtk_cmp
+udp        0      0 0.0.0.0:7894            0.0.0.0:*                           3189/np_service
+udp        0  65024 0.0.0.0:61170           0.0.0.0:*                           3202/rtsp_proxy
+udp    16128      0 0.0.0.0:61171           0.0.0.0:*                           3202/rtsp_proxy
+udp        0      0 0.0.0.0:56129           0.0.0.0:*                           3191/ftp_cmp
+udp        0      0 0.0.0.0:38732           0.0.0.0:*                           3190/RC_cmp
+udp        0      0 0.0.0.0:45979           0.0.0.0:*                           3202/rtsp_proxy
+udp        0      0 127.0.0.1:60349         127.0.0.1:7894          ESTABLISHED 3217/visionModule
+udp        0      0 0.0.0.0:33784           0.0.0.0:*                           3956/FPV_Camera
+udp        0      0 0.0.0.0:49152           0.0.0.0:*                           3956/FPV_Camera
+udp        0      0 0.0.0.0:49153           0.0.0.0:*                           3956/FPV_Camera
+
+
+
+
+tcpdump抓包
+#指定网卡
+tcpdump -i eth0
+#指定udp类型的报文
+tcpdump -i eth0 udp
+#指定报文src ip
+tcpdump -i eth0 src 145.192.1.22
+#指定报文dst ip
+tcpdump -i eth0 dst 145.192.1.22
+#指定src ip和port
+tcpdump src 192.168.203.1 and port 61136
+#抓包的内容写入到文件
+tcpdump src 192.168.203.1 and port 61136 -w test.pcapng
