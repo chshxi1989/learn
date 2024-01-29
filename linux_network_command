@@ -3,10 +3,9 @@
 -n:用数字显示ip和port，不用名称
 -u:udp
 -t:tcp
--l:Show only listening sockets.  (These are omitted by default.)
 -p:--program，显示程序信息，Show the PID and name of the program to which each socket belongs.
 
-/home/gdu-tech # netstat -antulp
+/home/gdu-tech # netstat -antup
 Active Internet connections (servers and established)
 Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
 tcp        0      0 0.0.0.0:554             0.0.0.0:*               LISTEN      3956/FPV_Camera
