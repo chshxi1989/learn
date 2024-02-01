@@ -2,7 +2,9 @@
 # 导入模块
 import sys
  
-
+'''
+解析二进制文件，按照FE 55分割数据，转换成文本形式，
+'''
 if __name__== "__main__":
     if len(sys.argv) != 2:
         print("sys argv error, %s binary_file_name" % sys.argv[0])
